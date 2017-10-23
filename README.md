@@ -3,6 +3,16 @@ Strata: A Cross Media File System
 
 ### Building Strata ###
 Assume current directory is a project root directory.
+
+##### 0. Change memory configuration
+1. Open libfs/src/storage/storage.h                                                                                                                                                                     
+2. Modify `dev_size` array values with each storage size (the same as in your grub conf, see the RUNNING STRATA section) in bytes.
+    dev_size[0] could be always 0 (not used)                                        
+    dev_size[1] dax0.0 size                                                         
+    dev_size[2] ssd size : just put 0 for now                                       
+    dev_size[3] HDD size : put 0 for now                                            
+    dev_size[4] dax1.0 size  
+
 ##### 1. Build kernel
 ~~~
 cd kernel/kbuild
@@ -22,7 +32,9 @@ make
 cd libfs/lib
 git clone https://github.com/pmem/nvml
 make
+
 tar xvjf jemalloc-4.5.0.tar.bz2
+cd jemalloc-4.5.0
 ./autogen
 ./configure
 make
@@ -38,7 +50,7 @@ make
 ~~~
 cd kernfs
 make
-cd test
+cd tests
 make
 ~~~
 
@@ -57,7 +69,7 @@ This step requires rebooting your machine.
 
 ##### 2. Use DEV-DAX emulation
 ~~~
-cd util
+cd utils
 sudo ./use_dax.sh bind
 ~~~
 This instruction will change pmem emulation to use dev-dax mode.
@@ -77,7 +89,7 @@ TODO: Some instructions to setup storage size (by a script or manually)
 
 ##### 4. Setup UIO for SPDK
 ~~~
-cd util
+cd utils
 sudo ./uio_setup.sh linux config
 ~~~
 To rollback to previous setting,
