@@ -1,6 +1,12 @@
 Strata: A Cross Media File System
 ==================================
 
+Strata is a research prototype file system, presented in SOSP 2017 [Strata].
+Strata is developed and tested on Ubuntu 16.04 LTS, Linux kernel 4.8.12 and gcc version 5.4.0.
+
+This repository contains initial source code and tests. Benchmarks will be released soon.
+As a research prototype, Strata has several limitations, described in [Limitations section](#Limitations)
+
 ### Building Strata ###
 Assume current directory is a project root directory.
 ##### 1. Build kernel
@@ -16,7 +22,6 @@ make -j
 cd shim
 make
 ~~~
-
 ##### 3. Build dependent libraries (SPDK, NVML, JEMALLOC)
 ~~~
 cd libfs/lib
@@ -27,13 +32,11 @@ tar xvjf jemalloc-4.5.0.tar.bz2
 ./configure
 make
 ~~~
-
 ##### 4. Build Libfs
 ~~~
 cd libfs
 make
 ~~~
-
 ##### 5. Build KernelFS
 ~~~
 cd kernfs
@@ -41,12 +44,11 @@ make
 cd test
 make
 ~~~
-
 ##### 6. Build libshim
-~~
+~~~
 cd shim/libshim
 make
-~~
+~~~
 
 ### Running Strata ###
 
@@ -159,3 +161,9 @@ DCONCURRENT - allow concurrent digest <br/>
 DMIGRATION - allow data migration. It requires turning on DUSE_SSD <br/>
 
 For debugging, DIGEST_OPT, DIOMERGE, DCONCURRENT is disabled for now
+
+### Limitations ###
+
+[Strata]: http://www.cs.utexas.edu/~yjkwon/publication/strata/ "Strata project"
+
+
