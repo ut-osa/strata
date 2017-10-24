@@ -1,11 +1,11 @@
 Strata: A Cross Media File System
 ==================================
 
-Strata is a research prototype file system, presented in SOSP 2017 [Strata].
+Strata is a research prototype file system, presented in SOSP 2017: [Strata].
 Strata is developed and tested on Ubuntu 16.04 LTS, Linux kernel 4.8.12 and gcc version 5.4.0.
 
 This repository contains initial source code and tests. Benchmarks will be released soon.
-As a research prototype, Strata has several limitations, described in [Limitations section](#Limitations)
+As a research prototype, Strata has several limitations, described in [Limitations section](#limitations)
 
 ### Building Strata ###
 Assume current directory is a project root directory.
@@ -164,6 +164,11 @@ For debugging, DIGEST_OPT, DIOMERGE, DCONCURRENT is disabled for now
 
 ### Limitations ###
 
+1. KernelFS is currently implmented in user-level.
+2. Leases are not fully implemented.
+3. A directory could contain up to 1000 files.
+4. mmap is not supported yet.
+5. Benchmarks are not fully tested in all configurations. Working configurations are described in our paper.
+6. There are known bugs in fork.
+
 [Strata]: http://www.cs.utexas.edu/~yjkwon/publication/strata/ "Strata project"
-
-
