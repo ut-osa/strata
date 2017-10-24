@@ -29,26 +29,15 @@ extern "C" {
 /*
  To get the dev-dax size,
  cat /sys/devices/platform/e820_pmem/ndbus0/region0/size
+ 0: not used
  1: g_root_dev
  2: g_ssd_dev
  3: g_hdd_dev
  4~ per-application log device
 */
-// setting 1. 10 GB, 20 GB, 30 GB file for debugging
-// static uint64_t dev_size[g_n_devices + 1] = {0, 10737418240UL, 26422018048UL, 51539607552UL, 5282725888UL,  5282725888UL};
 
-// setting 2. 40 GB, 120 GB, 300 GB file
- static uint64_t dev_size[g_n_devices + 1] = {0, 36507222016UL, 128849018880UL, 193273528320UL, 4294967296UL};
-// static uint64_t dev_size[g_n_devices + 1] = {0, 36507222016UL, 128849018880UL, 193273528320UL, 2147483648UL};
-//static uint64_t dev_size[g_n_devices + 1] = {0, 36507222016UL, 128849018880UL, 193273528320UL, 1073741824UL};
-// static uint64_t dev_size[g_n_devices + 1] = {0, 36507222016UL, 128849018880UL, 193273528320UL, 524288000UL};
-// static uint64_t dev_size[g_n_devices + 1] = {0, 36507222016UL, 128849018880UL, 193273528320UL, 104857600UL};
-
-// setting 3: two application support. 
-//static uint64_t dev_size[g_n_devices + 1] = 
-//{0, 34877734912UL, 150849018880UL, 193273528320UL, 5282725888UL, 5282725888UL}; //Debugging for levelDB
-//static uint64_t dev_size[g_n_devices + 1] = 
-//	{0, 34877734912UL, 150849018880UL, 193273528320UL, 4294967296UL, 4294967296UL};
+// device size in bytes
+static uint64_t dev_size[g_n_devices + 1] = {0, 21474836480UL, 128849018880UL, 193273528320UL, 2147483648UL};
 
 extern struct storage_operations storage_dax;
 extern struct storage_operations storage_spdk;
