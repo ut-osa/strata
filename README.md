@@ -5,13 +5,13 @@ Strata: A Cross Media File System
 Assume current directory is a project root directory.
 
 ##### 0. Change memory configuration
-1. Open libfs/src/storage/storage.h                                                                                                                                                                     
+1. Open libfs/src/storage/storage.h
 2. Modify `dev_size` array values with each storage size (the same as in your grub conf, see the RUNNING STRATA section) in bytes.
-    dev_size[0] could be always 0 (not used)                                        
-    dev_size[1] dax0.0 size                                                         
-    dev_size[2] ssd size : just put 0 for now                                       
-    dev_size[3] HDD size : put 0 for now                                            
-    dev_size[4] dax1.0 size  
+    dev_size[0] could be always 0 (not used)
+    dev_size[1] dax0.0 size
+    dev_size[2] ssd size : just put 0 for now
+    dev_size[3] HDD size : put 0 for now
+    dev_size[4] dax1.0 size
 
 ##### 1. Build kernel
 ~~~
@@ -132,7 +132,7 @@ sudo ./run.sh iotest sw 2G 4K 1 #sequential write, 2GB file with 4K IO and 1 thr
 in Makefile of libfs, search MLFS_FLAGS as keyword
 ~~~~
 MLFS_FLAGS = -DLIBFS -DMLFS_INFO
-#MLFS_FLAGS += -DCONCURRENT   
+#MLFS_FLAGS += -DCONCURRENT
 MLFS_FLAGS += -DINVALIDATION
 #MLFS_FLAGS += -DKLIB_HASH
 MLFS_FLAGS += -DUSE_SSD
