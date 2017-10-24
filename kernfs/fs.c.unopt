@@ -1,0 +1,1098 @@
+#include <sys/epoll.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+
+#include "mlfs/mlfs_user.h"
+#include "global/global.h"
+#include "global/util.h"
+#include "global/defs.h"
+#include "kernfs_interface.h"
+#include "fs.h"
+#include "io/block_io.h"
+#include "extents.h"
+#include "extents_bh.h"
+#include "bmanage.h"
+
+#define NOCREATE 0
+#define CREATE 1
+
+void mlfs_get_time(mlfs_time_t *a) {}
+
+pthread_spinlock_t icache_spinlock;
+pthread_spinlock_t dcache_spinlock;
+
+struct inode *inode_hash[g_n_devices + 1];
+struct dirent_block *dirent_hash[g_n_devices + 1];
+
+struct disk_superblock disk_sb[g_n_devices];
+struct super_block sb[g_n_devices];
+
+ncx_slab_pool_t *mlfs_slab_pool;
+
+uint8_t g_log_dev = 0;
+uint8_t g_ssd_dev = 0;
+
+kernfs_stats_t g_perf_stats;
+uint8_t enable_perf_stats;
+
+struct digest {
+	uint8_t dev;
+	struct list_head head;	//list of logheader meta
+};
+
+typedef struct migrate_entry {
+	uint32_t inum;
+	offset_t offset;
+	struct list_head link;
+} migrate_entry_t;
+
+void show_kernfs_stats(void)
+{
+	float clock_speed_mhz = get_cpu_clock_speed();
+
+	printf("\n");
+	//printf("CPU clock : %.3f MHz\n", clock_speed_mhz);
+	printf("----------------------- kernfs statistics\n");
+	printf("digest       : %.3f ms\n",
+			g_perf_stats.digest_time_tsc / (clock_speed_mhz * 1000.0));
+	printf("path search  : %.3f ms\n",
+			g_perf_stats.path_search_tsc / (clock_speed_mhz * 1000.0));
+	printf("--------------------------------------\n");
+}
+
+loghdr_meta_t *read_log_header(addr_t hdr_addr)
+{
+	struct buffer_head *bh;
+	int ret, i;
+	loghdr_t *_loghdr;
+	loghdr_meta_t *loghdr_meta;
+
+	loghdr_meta = mlfs_zalloc(sizeof(loghdr_meta_t));
+	if (!loghdr_meta) 
+		panic("cannot allocate logheader\n");
+
+	INIT_LIST_HEAD(&loghdr_meta->link);
+
+	//bh = mlfs_read(g_log_dev, hdr_addr, g_block_size_bytes, &ret);
+	
+	/* optimization: instead of reading log header block to kernfs,
+	 * buffer head points to memory address for log header block.
+	 */
+#if 1
+	bh = get_bh_from_cache(g_log_dev, hdr_addr, g_block_size_bytes, 
+			BUF_CACHE_NO_DATA_ALLOC);
+	bh->b_data = g_bdev[g_log_dev]->map_base_addr + 
+		(hdr_addr << g_block_size_shift);
+
+	//_loghdr = mlfs_zalloc(sizeof(loghdr_t));
+	//memmove(_loghdr, bh->b_data, sizeof(loghdr_t));
+	_loghdr = (loghdr_t *)bh->b_data;
+#else
+	_loghdr = (g_bdev[g_log_dev]->map_base_addr + 
+		(hdr_addr << g_block_size_shift));
+#endif
+
+	loghdr_meta->loghdr = _loghdr;
+	loghdr_meta->blkno = hdr_addr;
+	loghdr_meta->is_hdr_allocated = 1;
+
+	mlfs_debug("%s", "--------------------------------\n");
+	mlfs_debug("%d\n", _loghdr->n);
+	mlfs_debug("next loghdr %lx\n", _loghdr->next_loghdr_blkno);
+	mlfs_debug("inuse %x\n", _loghdr->inuse);
+
+	/*
+	for (i = 0; i < _loghdr->n; i++) {
+		mlfs_debug("types %d blocks %lx\n", 
+				_loghdr->type[i], _loghdr->blocks[i]);
+	}
+	*/
+
+	clear_buffer_uptodate(bh);
+
+	return loghdr_meta;
+}
+
+static int inode_cmp(struct rb_node *a, struct rb_node *b)
+{
+	struct inode *a_inode, *b_inode;
+	a_inode = container_of(a, struct inode, i_rb_node);
+	b_inode = container_of(b, struct inode, i_rb_node);
+
+	if (a_inode->inum < b_inode->inum)
+		return -1;
+	else if (a_inode->inum > b_inode->inum)
+		return 1;
+
+	return 0;
+}
+
+int digest_inode(uint8_t from_dev, uint8_t to_dev, 
+		uint32_t inum, addr_t blknr)
+{
+	struct buffer_head *bh;
+	struct dinode *src_dinode, *dst_dinode;
+	struct inode *inode;
+	int ret;
+
+	bh = mlfs_read(from_dev, blknr, g_block_size_bytes, &ret);
+	mlfs_io_wait(from_dev);
+
+	mlfs_assert(!ret);
+
+	src_dinode = (struct dinode *)bh->b_data;
+	src_dinode->dev = from_dev;
+
+	mlfs_debug("[INODE] dev %u type %u inum %u size %lu\n",
+			src_dinode->dev, src_dinode->itype, inum, src_dinode->size);
+
+	inode = icache_find(to_dev, inum);
+
+	if (!inode) 
+		inode = ialloc(to_dev, src_dinode->itype, inum);
+
+	if (inode->flags & I_DELETING) {
+		// reuse deleting inode.
+		// digest_unlink cleaned up old contents already.
+		if (!(inode->flags & I_VALID)) 
+			inode = ialloc(to_dev, src_dinode->itype, inum);
+
+		inode->flags &= ~I_DELETING;
+		inode->flags |= I_VALID;
+		inode->itype = src_dinode->itype;
+		inode->i_sb = &sb[to_dev];
+		inode->i_generation = 0;
+		inode->i_data_dirty = 0;
+	}
+
+	inode->size = src_dinode->size;
+
+	if (inode->itype == T_FILE) {
+		struct mlfs_extent_header *ihdr;
+
+		ihdr = ext_inode_hdr(inode);
+
+		// First creation of dinode of file
+		if (ihdr->eh_magic != MLFS_EXT_MAGIC) {
+			memset(inode->i_data, 0, sizeof(uint32_t) * 15);
+			mlfs_ext_tree_init(NULL, inode);
+
+			/* For testing purpose, those data is hard-coded. */
+			inode->i_writeback = NULL;
+			memset(inode->i_uuid, 0xCC, sizeof(inode->i_uuid));
+			inode->i_csum = mlfs_crc32c(~0, inode->i_uuid, sizeof(inode->i_uuid));
+			inode->i_csum =
+				mlfs_crc32c(inode->i_csum, &inode->inum, sizeof(inode->inum));
+			inode->i_csum = mlfs_crc32c(inode->i_csum, &inode->i_generation,
+					sizeof(inode->i_generation));
+		}
+
+		// ftruncate (shrink length)
+		if (src_dinode->size < inode->size) {
+			ret = mlfs_ext_truncate(inode, 
+					(src_dinode->size) >> g_block_size_shift, 
+					(inode->size) >> g_block_size_shift);
+		}
+	}
+
+	mlfs_debug("[INODE] (%d->%d) inode inum %u type %d, size %lu\n",
+			from_dev, to_dev, inode->inum, inode->itype, inode->size);
+
+	/*
+	ret = write_ondisk_inode(to_dev, inode);
+	mlfs_assert(ret == 0);
+	*/
+
+	ret = rb_insert(&inode->i_sb->s_dirty_root, 
+			&inode->i_rb_node, inode_cmp);
+
+	clear_buffer_uptodate(bh);
+
+	mlfs_release_bh(bh);
+
+	return 0;
+}
+
+int __attribute__ ((deprecated))
+digest_directory_unopt(uint8_t from_dev, uint8_t to_dev,
+		uint32_t dir_inum, uint32_t dir_size, addr_t blknr)
+{
+	struct inode *dir_inode;
+	struct dinode *dinode;
+	struct dirent *de;
+	struct buffer_head *bh_dir, *bh;
+	mlfs_fsblk_t blk_no;
+	int ret;
+
+	mlfs_debug("[DIR] dinode dev %u, inum %u\n", to_dev, dir_inum);
+
+	bh = mlfs_read(from_dev, blknr, g_block_size_bytes, &ret);
+	mlfs_io_wait(from_dev);
+	mlfs_assert(!ret);
+
+	// dbg_check_dir(bh->b_data);
+	// I assume directory inode ahead of digesting directory array.
+
+	de = (struct dirent *)bh->b_data;
+
+	mlfs_assert(de->inum != 0);
+
+	dir_inode = icache_find(to_dev, dir_inum);
+	if (!dir_inode) {
+		dir_inode = icache_alloc_add(to_dev, dir_inum);
+
+		// read directory inode
+		dinode = read_ondisk_inode(to_dev, dir_inum);
+
+		mlfs_assert(dinode->itype == T_DIR);
+
+		mlfs_assert(dinode->dev == to_dev);
+
+		sync_inode_from_dinode(dir_inode, dinode);
+		dir_inode->i_sb = &sb[dir_inode->dev];
+	}
+
+	// allocate directory array block.
+	if (dir_inode->addrs[0] == 0) {
+		ret = generic_balloc(dir_inode, 1, BALLOC_SEQ, &blk_no);
+		mlfs_assert(!ret);
+		dir_inode->addrs[0] = blk_no;
+	} else 
+		blk_no = dir_inode->addrs[0];
+
+	mlfs_debug("dev %d directory blkno %lx\n", to_dev, blk_no);
+
+	mlfs_assert(dir_inode->size != 0);
+
+	dir_inode->size = dir_size;
+
+	mlfs_debug("dir_inode size %lu\n", dir_inode->size);
+
+	//write directory array block.
+	bh_dir = get_bh_from_cache(dir_inode->dev, blk_no, 
+			g_block_size_bytes, BUF_CACHE_ALLOC);
+	bh_dir->b_data = bh->b_data;
+
+	ret = mlfs_write(bh_dir);
+	//set_buffer_uptodate(bh_dir);
+	mlfs_assert(!ret);
+
+	mlfs_debug("[DIR] (%d->%d) inode inum %u size %lu\n",
+			from_dev, dir_inode->dev,
+			dir_inode->inum, dir_inode->size);
+
+	/*
+	ret = write_ondisk_inode(to_dev, dir_inode);
+	mlfs_assert(!ret);
+	*/
+
+	ret = rb_insert(&dir_inode->i_sb->s_dirty_root, 
+			&dir_inode->i_rb_node, inode_cmp);
+
+	clear_buffer_uptodate(bh);
+
+	mlfs_release_bh(bh);
+
+	return 0;
+}
+
+/* n : nth entry in the log header.
+ * type : digest type.
+ */
+int digest_directory(uint8_t from_dev, uint8_t to_dev, int n, uint8_t type, 
+		uint32_t dir_inum, uint32_t dir_size, offset_t offset, addr_t blknr)
+{
+	struct inode *dir_inode;
+	struct dinode *dinode;
+	struct dirent *de;
+	char loghdr_ext[2048], *name;
+	uint32_t dirent_inum;
+	struct buffer_head *bh_dir, *bh;
+	uint8_t *dirent_array;
+	int ret;
+
+	mlfs_debug("[DIR] dinode dev %u, inum %u\n", to_dev, dir_inum);
+
+	bh = mlfs_read(from_dev, blknr, g_block_size_bytes, &ret);
+	mlfs_io_wait(from_dev);
+	mlfs_assert(!ret);
+
+	name = (char *)bh->b_data + sizeof(struct logheader);
+	memmove(loghdr_ext, name, strlen(name));
+
+	/* Ugly tokenizing. To see the token format,
+	 * check dir_add_entry in libfs */
+	name = strtok(loghdr_ext, "|");
+	while (name != NULL) {
+		if (name[0] == '0' + n) {
+			name++;
+			break;
+		}
+		name = strtok(NULL, "|");
+	}
+	name = strtok(name, "-");
+	dirent_inum = strtoul(strtok(NULL, "-"), NULL, 10);
+	mlfs_debug("[DIR] %s, name %s inum %d\n", 
+			type == L_TYPE_DIR_ADD ? "ADD" : "DEL",
+			name, dirent_inum);
+
+	dir_inode = icache_find(to_dev, dir_inum);
+	if (!dir_inode) 
+		dir_inode = ialloc(to_dev, T_DIR, dir_inum);
+
+	dir_inode->size = dir_size;
+
+	//mlfs_assert(dir_inode->size != 0);
+
+	// Update dirent array block. Possibly, a new directory block could be allocated
+	// during directory walk (in get_dirent_block()).
+	if (type == L_TYPE_DIR_ADD) 
+		dir_add_entry(dir_inode, name, dirent_inum);
+	else if (type == L_TYPE_DIR_DEL)
+		dir_remove_entry(dir_inode, name, dirent_inum);
+	else
+		panic("unsupported type\n");
+
+	mlfs_debug("dir_inode size %lu\n", dir_inode->size);
+
+	mlfs_debug("[DIR] (%d->%d) inode inum %u size %lu\n",
+			from_dev, dir_inode->dev,
+			dir_inode->inum, dir_inode->size);
+
+	ret = rb_insert(&dir_inode->i_sb->s_dirty_root, 
+			&dir_inode->i_rb_node, inode_cmp);
+
+	clear_buffer_uptodate(bh);
+
+	mlfs_release_bh(bh);
+
+	return 0;
+}
+
+int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum, 
+		offset_t offset, uint32_t length, addr_t blknr)
+{
+	int ret;
+	uint32_t offset_in_block = 0;
+	struct inode *file_inode;
+	struct dinode *file_dinode;
+	struct buffer_head *bh_data, *bh;
+	uint8_t *data;
+	struct mlfs_ext_path *path = NULL;
+	struct mlfs_map_blocks map;
+	uint32_t nr_blocks = 0, nr_digested_blocks = 0;
+	offset_t cur_offset;
+
+	mlfs_debug("[FILE] (%d->%d) inum %d offset %lu(0x%lx) length %u\n", 
+			from_dev, to_dev, file_inum, offset, offset, length);
+
+	if (length < g_block_size_bytes)
+		nr_blocks = 1;
+	else {
+		nr_blocks = (length >> g_block_size_shift);
+
+		if (length % g_block_size_bytes != 0) 
+			nr_blocks++;
+	}
+
+	mlfs_assert(nr_blocks > 0);
+
+	/* optimization: it does not need to read blocks from NVM.
+	 * Instead, it is possible to storage to storage copy.
+	bh = mlfs_read(from_dev, blknr, nr_blocks * g_block_size_bytes, &ret);
+	mlfs_assert(!ret);
+	data = bh->b_data;
+	*/
+
+	if (from_dev == g_ssd_dev)
+		panic("does not support this case\n");
+
+	// Storage to storage copy.
+	// FIXME: this does not work if migrating block from SSD to NVM.
+	data = g_bdev[from_dev]->map_base_addr + (blknr << g_block_size_shift);
+
+	//read file inode
+	file_dinode = read_ondisk_inode(to_dev, file_inum);
+
+	file_inode = icache_find(to_dev, file_inum);
+	if (!file_inode) {
+		struct dinode *dip;
+		file_inode = icache_alloc_add(to_dev, file_inum);
+
+		dip = read_ondisk_inode(to_dev, file_inum);
+		mlfs_assert(dip->itype != 0);
+
+		sync_inode_from_dinode(file_inode, dip);
+
+		file_inode->i_sb = &sb[to_dev];
+
+		mlfs_assert(dip->dev != 0);
+	}
+
+	mlfs_assert(file_inode->dev != 0);
+
+#ifdef USE_SSD
+	// update file inode length and mtime.
+	if (file_inode->size < offset + length) {
+		/* Inode size should be synchronized among NVM and SSD layer.
+		 * So, update both inodes */
+		uint8_t sync_dev = 3 - to_dev;
+		struct inode *sync_file_inode = icache_find(sync_dev, file_inum);
+		if (!sync_file_inode) {
+			struct dinode *dip;
+			sync_file_inode = icache_alloc_add(sync_dev, file_inum);
+
+			dip = read_ondisk_inode(sync_dev, file_inum);
+
+			mlfs_assert(dip->itype != 0);
+			sync_inode_from_dinode(sync_file_inode, dip);
+
+			file_inode->i_sb = &sb[to_dev];
+		}
+
+		file_inode->size = offset + length;
+		sync_file_inode->size = file_inode->size;
+
+		mlfs_mark_inode_dirty(file_inode);
+		mlfs_mark_inode_dirty(sync_file_inode);
+	}
+#endif
+
+	nr_digested_blocks = 0;
+	cur_offset = offset;
+	offset_in_block = offset % g_block_size_bytes;
+
+	// case 1. a single block writing: small size (< 4KB) 
+	// or a heading block of unaligned starting offset.
+	if ((length < g_block_size_bytes) || offset_in_block != 0) {
+		int _len = min(length, (uint32_t)g_block_size_bytes - offset_in_block);
+
+		map.m_lblk = (cur_offset >> g_block_size_shift);
+		map.m_pblk = 0;
+		map.m_len = 1;
+
+		ret = mlfs_ext_get_blocks(NULL, file_inode, &map, 
+				MLFS_GET_BLOCKS_CREATE);
+
+		mlfs_assert(ret == 1);
+
+		bh_data = get_bh_from_cache(to_dev, 0, 
+				g_block_size_bytes, BUF_CACHE_NO_DATA_ALLOC);
+
+		bh_data->b_data = data + offset_in_block;
+		bh_data->b_blocknr = map.m_pblk;
+		bh_data->b_size = _len;
+		bh_data->b_offset = offset_in_block;
+
+		//mlfs_debug("File data : %s\n", bh_data->b_data);
+
+		ret = mlfs_write(bh_data);
+		mlfs_assert(!ret);
+		clear_buffer_uptodate(bh_data);
+		mlfs_release_bh(bh_data);
+
+		mlfs_debug("inum %d, offset %lu (dev %d:%lx) -> (dev %d:%lx)\n", 
+				file_inode->inum, cur_offset, from_dev, 
+				blknr, to_dev, map.m_pblk);
+
+		nr_digested_blocks++;
+		cur_offset += _len;
+		data += _len;
+	}
+
+	// case 2. multiple trial of block writing.
+	// when extent tree has holes in a certain offset (due to data migration),
+	// an extent is split at the hole. Kernfs should call mlfs_ext_get_blocks()
+	// with setting m_lblk to the offset having a the hole to fill it.
+	while (nr_digested_blocks < nr_blocks) {
+		int nr_block_get = 0;
+
+		mlfs_assert((cur_offset % g_block_size_bytes) == 0);
+
+		map.m_lblk = (cur_offset >> g_block_size_shift);
+		map.m_pblk = 0;
+		map.m_len = nr_blocks - nr_digested_blocks;
+
+		// find block address of offset and update extent tree
+		nr_block_get = mlfs_ext_get_blocks(NULL, file_inode, &map, 
+				MLFS_GET_BLOCKS_CREATE);
+
+		mlfs_assert(nr_block_get <= (nr_blocks - nr_digested_blocks));
+		mlfs_assert(nr_block_get > 0);
+
+		nr_digested_blocks += nr_block_get;
+
+		mlfs_debug("inum %d, offset %lu len %u (dev %d:%lx) -> (dev %d:%lx)\n", 
+				file_inode->inum, cur_offset, map.m_len << g_block_size_shift, 
+				from_dev, blknr, to_dev, map.m_pblk);
+
+		// update data block
+		bh_data = get_bh_from_cache(to_dev, 0, 
+				nr_block_get * g_block_size_bytes, BUF_CACHE_NO_DATA_ALLOC);
+
+		bh_data->b_data = data;
+		bh_data->b_blocknr = map.m_pblk;
+		bh_data->b_size = nr_block_get * g_block_size_bytes;
+		bh_data->b_offset = 0;
+
+		//mlfs_debug("File data : %s\n", bh_data->b_data);
+
+		ret = mlfs_write(bh_data);
+		mlfs_assert(!ret);
+		clear_buffer_uptodate(bh_data);
+		mlfs_release_bh(bh_data);
+
+		cur_offset += nr_block_get * g_block_size_bytes;
+		data += nr_block_get * g_block_size_bytes;
+	}
+
+	mlfs_assert(nr_blocks == nr_digested_blocks);
+
+	if (file_inode->size < offset)
+		file_inode->size = offset;
+
+#if 0
+	//update cuckoofilter
+	for (i = 0; i < loghdr->n; i++) {
+		if (loghdr->type[i] == L_TYPE_FILE) {
+			ip = iget(g_root_dev, loghdr->inode_no[i]);
+			mlfs_assert(ip);
+
+			if (!ip->filter) {
+				// covers 4k * (10 << 18) = 10GB key space.
+				ip->filter = cuckoo_filter_create(10 << 18);
+			}
+
+			cuckoo_filter_add(ip->filter, loghdr->offset[i]);
+
+			iput(ip);
+		}
+	}
+#endif
+
+	/*
+	clear_buffer_uptodate(bh);
+	mlfs_release_bh(bh);
+	*/
+
+	// Do not write inode on every file digest.
+	// Instead, add the inode to dirty list and write back after
+	// finishing the all digest requests.
+	//ret = write_ondisk_inode(to_dev, file_inode);
+
+	return 0;
+}
+
+void migrate_files(struct list_head *migrate_list)
+{
+	struct migrate_entry *l;
+	mlfs_fsblk_t blknr;
+	struct inode *file_inode;
+	struct mlfs_map_blocks map;
+	int ret;
+	uint32_t migrated_blocks = 0;
+
+	list_for_each_entry(l, migrate_list, link) {
+		file_inode = icache_find(g_root_dev, l->inum);
+		mlfs_assert(file_inode);
+
+		map.m_len = 1;
+		map.m_lblk = (l->offset >> g_block_size_shift);
+		ret = mlfs_ext_get_blocks(NULL, file_inode, &map, 0);
+
+		if (ret == 0)
+			continue;
+
+		mlfs_debug("%s", "++++++++++++++++++++++++++++++++\n");
+		mlfs_debug("migrate (%d->%d): inum %d offset %lu(0x%lx)\n", 
+				g_root_dev, 2, l->inum, l->offset, l->offset);
+
+		digest_file(g_root_dev, 2, l->inum, l->offset, 
+				g_block_size_bytes, map.m_pblk);
+
+		migrated_blocks++;
+	}
+
+	list_for_each_entry(l, migrate_list, link) {
+		file_inode = icache_find(g_root_dev, l->inum);
+		mlfs_assert(file_inode);
+
+		ret = mlfs_ext_truncate(file_inode, 
+				(l->offset) >> g_block_size_shift, 
+				(l->offset) >> g_block_size_shift);
+
+#if 0
+		// The followings is nothing but checking whether
+		// the truncate is done correctly
+		
+		mlfs_debug("%s", "********************************\n");
+		map.m_len = 1;
+		map.m_lblk = (l->offset >> g_block_size_shift);
+		ret = mlfs_ext_get_blocks(NULL, file_inode, &map, 0);
+		//mlfs_debug("truncated offset %lu ret %d\n", l->offset, ret);
+
+		mlfs_assert(ret == 0);
+		mlfs_debug("get_blocks(dev = %d): offset %lu(0x%lx) ret %d\n", 
+				g_root_dev, l->offset, l->offset, ret);
+
+		file_inode = icache_find(g_ssd_dev, l->inum);
+		mlfs_assert(file_inode);
+
+		ret = mlfs_ext_get_blocks(NULL, file_inode, &map, 0);
+		mlfs_assert(ret == map.m_len);
+		mlfs_debug("get_blocks(dev = %d): offset %lu(0x%lx) ret %d\n", 
+				g_ssd_dev, l->offset, l->offset, ret);
+#endif
+	}
+
+	mlfs_debug("Data migration is done : %u MB\n", migrated_blocks / 256);
+}
+
+int digest_unlink(uint8_t dev_from, uint8_t dev_to, uint32_t inum)
+{
+	struct buffer_head *bh;
+	struct inode *inode;
+	struct dinode *dinode;
+	int ret = 0;
+
+	mlfs_debug("[UNLINK] (%d->%d) inum %d\n", dev_from, dev_to, inum);
+
+	dinode = read_ondisk_inode(dev_to, inum);
+
+	//mlfs_assert(dinode->itype != 0);
+
+	inode = icache_find(dev_to, inum);
+
+	mlfs_assert(inode);
+
+	if (dinode->itype == T_FILE) {
+		if (inode->size > 0) {
+			ret = mlfs_ext_truncate(inode, 0, inode->size);
+			mlfs_assert(!ret);
+		}
+	} else if (dinode->itype == T_DIR) {
+		;
+	} else {
+		//panic("unsupported inode type\n");
+	}
+
+	// Does not delete inode from icache.
+	// Instread, the inode is likely to be reused in the future.
+	// icache_del(inode);
+
+	memset(inode->_dinode, 0, sizeof(struct dinode));
+
+	inode->dev = dev_to;
+	inode->flags = 0;
+	inode->flags |= I_DELETING;
+	
+	// TODO: Is it OK to differ the inode write?
+	//ret = write_ondisk_inode(dev_to, inode);
+	ret = rb_insert(&inode->i_sb->s_dirty_root, 
+			&inode->i_rb_node, inode_cmp);
+
+	return 0;
+}
+
+void digest_log_entries(loghdr_meta_t *loghdr_meta)
+{
+	int i, ret;
+	loghdr_t *loghdr;
+	uint16_t nr_entries;
+
+	nr_entries = loghdr_meta->loghdr->n;
+	loghdr = loghdr_meta->loghdr;
+
+	for (i = 0; i < nr_entries; i++) {
+		// parse log entries on types.
+		switch(loghdr->type[i]) {
+			// ftruncate is handled by this case.
+			case L_TYPE_INODE: {
+				ret = digest_inode(g_log_dev,
+						g_root_dev,
+						loghdr->inode_no[i], 
+						loghdr->blocks[i]);
+				mlfs_assert(!ret);
+#ifdef USE_SSD
+				ret = digest_inode(g_log_dev,
+						g_ssd_dev,
+						loghdr->inode_no[i], 
+						loghdr->blocks[i]);
+				mlfs_assert(!ret);
+#endif
+				break;
+			}
+			case L_TYPE_DIR_ADD: 
+			case L_TYPE_DIR_DEL: {
+				ret = digest_directory(g_log_dev, 
+						g_root_dev,
+						i,
+						loghdr->type[i],
+						loghdr->inode_no[i], 
+						loghdr->length[i], 
+						loghdr->data[i],
+						loghdr_meta->blkno);
+				mlfs_assert(!ret);
+#ifdef USE_SSD
+				ret = digest_directory(g_log_dev, 
+						g_ssd_dev,
+						i,
+						loghdr->type[i],
+						loghdr->inode_no[i], 
+						loghdr->length[i], 
+						loghdr->data[i],
+						loghdr_meta->blkno);
+				mlfs_assert(!ret);
+#endif
+				break;
+			}
+			case L_TYPE_FILE: {
+				uint8_t dest_dev = g_root_dev;
+#ifdef USE_SSD
+				int rand_val = get_rand_interval(0, 100);
+				
+				if (rand_val < 40) 
+					dest_dev = g_ssd_dev;
+				dest_dev = g_root_dev;
+#endif
+				ret = digest_file(g_log_dev, 
+						dest_dev,
+						loghdr->inode_no[i], 
+						loghdr->data[i], 
+						loghdr->length[i],
+						loghdr->blocks[i]);
+				mlfs_assert(!ret);
+				break;
+			}
+			case L_TYPE_UNLINK: {
+				ret = digest_unlink(g_log_dev,
+						g_root_dev,
+						loghdr->inode_no[i]);
+				mlfs_assert(!ret);
+#ifdef USE_SSD
+				ret = digest_unlink(g_log_dev,
+						g_ssd_dev,
+						loghdr->inode_no[i]);
+				mlfs_assert(!ret);
+#endif
+				break;
+			}
+			default: {
+				printf("%s: digest type %d\n", __func__, loghdr->type[i]);
+				panic("unsupported type of operation\n");
+				break;
+			}
+		}
+	}
+}
+
+
+int digest_logs(int n_hdrs, addr_t *loghdr_to_digest, int *rotated)
+{
+	loghdr_meta_t *loghdr_meta;
+	struct rb_node *node;
+	int i, n_digest;
+	time_t t;
+
+	// digest log entries
+	for (i = 0 ; i < n_hdrs; i++) {
+		loghdr_meta = read_log_header(*loghdr_to_digest);
+
+		digest_log_entries(loghdr_meta);
+
+		// rotated when next_loghdr_blkno jumps to beginning of the log.
+		if (*loghdr_to_digest > loghdr_meta->loghdr->next_loghdr_blkno)
+			*rotated = 1;
+
+		*loghdr_to_digest = loghdr_meta->loghdr->next_loghdr_blkno;
+
+		if (loghdr_meta->loghdr->inuse != LH_COMMIT_MAGIC) {
+			mlfs_assert(loghdr_meta->loghdr->inuse == 0);
+			mlfs_free(loghdr_meta);
+			break;
+		}
+
+		mlfs_free(loghdr_meta);
+	}
+
+	n_digest = i;
+
+	// save block allocation bitmap
+	store_all_bitmap(g_root_dev, sb[g_root_dev].s_blk_bitmap);
+	store_all_bitmap(g_ssd_dev, sb[g_ssd_dev].s_blk_bitmap);
+
+	// save tree changes
+	sync_all_buffers(g_bdev[g_root_dev]);
+	sync_all_buffers(g_bdev[g_ssd_dev]);
+
+	// save dirty inodes
+	for (node = rb_first(&sb[g_root_dev].s_dirty_root); 
+			node; node = rb_next(node)) {
+		struct inode *ip = rb_entry(node, struct inode, i_rb_node);
+		mlfs_debug("[dev %d] write dirty inode %d size %lu\n",
+				ip->dev, ip->inum, ip->size);
+		rb_erase(&ip->i_rb_node, &ip->i_sb->s_dirty_root);
+		write_ondisk_inode(g_root_dev, ip);
+
+		if (ip->itype == T_DIR) 
+			persist_dirty_dirent_block(ip);
+	}
+
+#ifdef USE_SSD
+	for (node = rb_first(&sb[g_ssd_dev].s_dirty_root); 
+			node; node = rb_next(node)) {
+		struct inode *ip = rb_entry(node, struct inode, i_rb_node);
+		mlfs_debug("[dev %d] write dirty inode %d size %lu\n",
+				ip->dev, ip->inum, ip->size);
+		rb_erase(&ip->i_rb_node, &ip->i_sb->s_dirty_root);
+		write_ondisk_inode(g_ssd_dev, ip);
+
+		if (ip->itype == T_DIR) 
+			persist_dirty_dirent_block(ip);
+	}
+
+#endif
+
+	mlfs_io_wait(g_root_dev);
+#ifdef USE_SSD
+	mlfs_io_wait(g_ssd_dev);
+#endif
+
+	if (0) {
+		ncx_slab_stat_t slab_stat;
+		ncx_slab_stat(mlfs_slab_pool, &slab_stat);
+	}
+
+	return n_digest;
+}
+
+#define BACKLOG_SIZE 1
+void wait_for_event(void)
+{
+	int sock_fd, epfd, flags, n, ret;
+	struct sockaddr_un addr, cli_addr;
+	char buf[MAX_SOCK_BUF];
+	struct epoll_event epev = {0};
+	char cmd_header[12];
+	uint32_t dev_id;
+	addr_t digest_blkno, end_blkno;
+	uint32_t digest_count;
+	int infd = 0;
+
+	if ((sock_fd = socket(AF_UNIX, SOCK_DGRAM, 0)) < 0)
+		panic ("socket error");
+
+	memset(&addr, 0, sizeof(addr));
+
+	addr.sun_family = AF_UNIX;
+	strncpy(addr.sun_path, SRV_SOCK_PATH, sizeof(addr.sun_path));
+
+	// SO_REUSEADDR does not apply in domain socket. 
+	unlink(SRV_SOCK_PATH);
+
+	if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
+		panic("bind error");
+	
+	// make it non-blocking
+	flags = fcntl(sock_fd, F_GETFL, 0);
+	flags |= O_NONBLOCK;
+	ret = fcntl(sock_fd, F_SETFL, flags);
+	if (ret < 0)
+		panic("fail to set non-blocking mode\n");
+
+	epfd = epoll_create(1);
+	epev.data.fd = sock_fd;
+	epev.events = EPOLLIN | EPOLLRDHUP | EPOLLHUP;
+	ret = epoll_ctl(epfd, EPOLL_CTL_ADD, sock_fd, &epev);
+	if (ret < 0)
+		panic("fail to connect epoll fd\n");
+
+	while(1) {
+		socklen_t len = sizeof(struct sockaddr_un);
+
+		memset(cmd_header, 0, 12);
+
+		/* FIXME: When client is crashed or terminated, 
+		 * epoll_wait returns with event EPOLLIN */
+		n = epoll_wait(epfd, &epev, 1, -1);
+		// assuming only one connection.
+		if (n > 0) {
+			int rotated = 0;
+			addr_t next_hdr_of_digested_hdr;
+
+			memset(buf, 0, MAX_SOCK_BUF);
+
+			ret = recvfrom(sock_fd, buf, MAX_SOCK_BUF, 0,
+					 (struct sockaddr *)&cli_addr, &len);
+
+			// When client hanged up, recv or read returns 0 (EOF).
+			if (ret == 0) {
+				continue;
+			}
+
+			mlfs_printf("GET: %s\n", buf);
+
+			// parsing digest request
+			sscanf(buf, "|%s |%d|%u|%lu|%lu|", 
+					cmd_header, &dev_id, &digest_count, &digest_blkno, &end_blkno);
+			
+			mlfs_debug("%s\n", cmd_header);
+			//mlfs_assert(strcmp(cmd_header, "digest") == 0);
+			if (strcmp(cmd_header, "digest") == 0) {
+				mlfs_debug("digest command: dev_id %u, digest_blkno %lx, digest_count %u\n",
+						dev_id, digest_blkno, digest_count);
+
+				if (enable_perf_stats) {
+					g_perf_stats.digest_time_tsc = asm_rdtscp();
+					g_perf_stats.path_search_tsc = 0;
+				}
+
+				digest_count = digest_logs(digest_count, &digest_blkno, &rotated);
+				if (enable_perf_stats)	
+					g_perf_stats.digest_time_tsc = 
+						(asm_rdtscp() - g_perf_stats.digest_time_tsc);
+
+			} else {
+				panic("invalid digest command\n");
+			}
+
+			memset(buf, 0, MAX_SOCK_BUF);
+			sprintf(buf, "|ACK |%d|%lu|%d|", digest_count, digest_blkno, rotated);
+			mlfs_printf("Write %s to libfs\n", buf);
+
+			//write(infd, buf, MAX_SOCK_BUF);
+			sendto(sock_fd, buf, MAX_SOCK_BUF, 0, 
+					(struct sockaddr *)&cli_addr, sizeof(struct sockaddr_un));
+		
+#if 0
+			memset(buf, 0, MAX_SOCK_BUF);
+			strncpy(buf, "MIGRATE\0", 8);
+			mlfs_debug("Write %s to libfs\n", buf);
+			sendto(sock_fd, buf, MAX_SOCK_BUF, 0, 
+					(struct sockaddr *)&cli_addr, sizeof(struct sockaddr_un));
+#endif
+			if (enable_perf_stats)	
+				show_kernfs_stats();
+		}
+
+		if (n < 0 && errno != EINTR)
+			panic("epoll has error\n");
+	}
+
+	close(epfd);
+}
+
+void shutdown_fs(void)
+{
+	printf("Finalize FS\n");
+
+	device_shutdown();
+	return ;
+}
+
+#ifdef USE_SLAB
+void mlfs_slab_init(uint64_t pool_size)
+{
+    uint8_t *pool_space;
+
+    // Transparent huge page allocation.
+    pool_space = mmap(0, pool_size, PROT_READ|PROT_WRITE,
+            MAP_PRIVATE|MAP_ANONYMOUS|MAP_POPULATE, -1, 0);
+
+    mlfs_assert(pool_space);
+
+    if (madvise(pool_space, pool_size, MADV_HUGEPAGE) < 0)
+        panic("cannot do madvise for huge page\n");
+
+    mlfs_slab_pool = (ncx_slab_pool_t *)pool_space;
+    mlfs_slab_pool->addr = pool_space;
+    mlfs_slab_pool->min_shift = 3;
+    mlfs_slab_pool->end = pool_space + pool_size;
+
+    ncx_slab_init(mlfs_slab_pool);
+}
+#endif
+
+void init_fs(void)
+{
+	const char *perf_profile;
+	g_ssd_dev = 2;
+	g_log_dev = 3;
+#ifdef USE_SLAB
+	mlfs_slab_init(4UL << 30); 
+#endif
+
+	device_init();
+
+	cache_init(g_root_dev);
+
+	read_superblock(g_root_dev);
+	read_superblock(g_ssd_dev);
+
+	read_root_inode(g_root_dev);
+	read_root_inode(g_ssd_dev);
+
+	bmanage_init(g_root_dev, &sb[g_root_dev]);
+	bmanage_init(g_ssd_dev, &sb[g_ssd_dev]);
+
+	memset(&g_perf_stats, 0, sizeof(kernfs_stats_t));
+
+	perf_profile = getenv("MLFS_PROFILE");
+
+	if (perf_profile)
+		enable_perf_stats = 1;
+	else
+		enable_perf_stats = 0;
+
+	mlfs_debug("%s\n", "LIBFS is initialized");
+
+	wait_for_event();
+}
+
+void cache_init(uint8_t dev)
+{
+	int i;
+	//init_spinlock(&icache.lock, "icache");
+
+	for (i = 1; i < g_n_devices + 1; i++) {
+		inode_hash[i] = NULL;
+		dirent_hash[i] = NULL;
+	}
+
+	pthread_spin_init(&icache_spinlock, PTHREAD_PROCESS_SHARED);
+	pthread_spin_init(&dcache_spinlock, PTHREAD_PROCESS_SHARED);
+}
+
+void read_superblock(uint8_t dev)
+{
+	int ret;
+	struct buffer_head *bh;
+
+	bh = mlfs_read(dev, 1, g_block_size_bytes, &ret);
+	mlfs_io_wait(dev);
+
+	if (!bh)
+		panic("cannot read superblock\n");
+
+	mlfs_debug("size of superblock %ld\n", sizeof(struct disk_superblock));
+
+	memmove(&disk_sb[dev], bh->b_data, sizeof(struct disk_superblock));
+	set_buffer_pin(bh);
+	
+	mlfs_debug("superblock: size %u nblocks %u ninodes %u "
+			"[inode start %lx bmap start %lx datablock start %lx log start %lx]\n",
+			disk_sb[dev].size, 
+			disk_sb[dev].ndatablocks, 
+			disk_sb[dev].ninodes,
+			disk_sb[dev].inode_start, 
+			disk_sb[dev].bmap_start, 
+			disk_sb[dev].datablock_start,
+			disk_sb[dev].log_start);
+
+	sb[dev].ondisk = &disk_sb[dev];
+
+	sb[dev].s_dirty_root = RB_ROOT;
+}
