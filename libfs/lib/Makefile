@@ -1,7 +1,7 @@
 .PHONY: download all clean
 
 all:
-	(cd spdk && make -j8)
+	(cd spdk && ./configure && make -j8)
 	make -C nvml -j8
 
 #shouldn't redownload DPDK, there is an issue right now with fPIC; it's manually
