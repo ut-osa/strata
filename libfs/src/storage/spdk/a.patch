@@ -1,0 +1,118 @@
+diff --git a/libfs/src/storage/spdk/Makefile b/libfs/src/storage/spdk/Makefile
+index 23210e4..d8a0faf 100644
+--- a/libfs/src/storage/spdk/Makefile
++++ b/libfs/src/storage/spdk/Makefile
+@@ -1,4 +1,3 @@
+-DPDK_DIR := $(abspath $(CURDIR)/../../../lib/dpdk/x86_64-native-linuxapp-gcc)
+ SPDK_ROOT_DIR := $(abspath $(CURDIR)/../../../lib/spdk/)
+ MLFS_DIR := $(abspath $(CURDIR)/../../)
+ include $(SPDK_ROOT_DIR)/mk/spdk.common.mk
+@@ -9,14 +8,14 @@ MLFS_DEP_OBJS = $(MLFS_DIR)/../build/global/util.o
+ 
+ OBJS += $(MLFS_DEP_OBJS)
+ 
+-CFLAGS += -I. -I $(MLFS_DIR) $(ENV_CFLAGS) -I $(DPDK_DIR)/include -I $(SPDK_ROOT_DIR)/include
++CFLAGS += -I. -I $(MLFS_DIR) $(ENV_CFLAGS) -I $(SPDK_ROOT_DIR)/include
+ #DEBUG := -O0 -g
+-DEBUG := -Ofast
++DEBUG := -O3
+ 
+ SPDK_LIBS += $(SPDK_ROOT_DIR)/build/lib/libspdk_nvme.a \
+ 	     $(SPDK_ROOT_DIR)/build/lib/libspdk_util.a \
+ 	     $(SPDK_ROOT_DIR)/build/lib/libspdk_log.a \
+-		 $(ENV_LIBS)
++	     $(SPDK_ROOT_DIR)/dpdk/build/lib/librte_eal.a
+ 
+ LIBS += $(SPDK_LIBS) $(ENV_LINKER_ARGS) 
+ 
+@@ -36,6 +35,6 @@ clean :
+ 
+ %.o: %.c
+ 	$(CC) -o $@ $(DEBUG) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(SPDK_LIBS) $(SYS_LIBS)  \
+-	-fPIC -I $(DPDK_DIR)/include -I $(SPDK_ROOT_DIR)/include -c $< -DMLFS_INFO
++	-fPIC  -I $(SPDK_ROOT_DIR)/include -c $< -DMLFS_INFO
+ 
+ include $(SPDK_ROOT_DIR)/mk/spdk.deps.mk
+diff --git a/libfs/src/storage/spdk/async.c b/libfs/src/storage/spdk/async.c
+index 331ca37..0de6d3e 100644
+--- a/libfs/src/storage/spdk/async.c
++++ b/libfs/src/storage/spdk/async.c
+@@ -137,16 +137,16 @@ int spdk_async_io_init(void)
+ 		panic("cannot initialized libspdk\n");
+ 
+ 	// allocate separate q_pair for readahead
+-	read_qpair = spdk_nvme_ctrlr_alloc_io_qpair(g_namespaces->ctrlr, 0);
++	read_qpair = spdk_nvme_ctrlr_alloc_io_qpair(g_namespaces->ctrlr, NULL, 0);
+ 	if (!read_qpair) 
+ 		panic("cannot allocated qpair\n");
+ 
+ 	//ra_io = mlfs_alloc(sizeof(struct spdk_async_io));
+ 	//read_io = mlfs_alloc(sizeof(struct spdk_async_io));
+ 	
+-	read_buffer = spdk_zmalloc((6 << 20), 0x1000, NULL);
+-	ra.ra_buf = spdk_zmalloc((2 << 20), 0x1000, NULL); 
+-	write_buffer = spdk_zmalloc((6 << 20), 0x1000, NULL); 
++	read_buffer = spdk_dma_zmalloc((6 << 20), 0x1000, NULL);
++	ra.ra_buf = spdk_dma_zmalloc((2 << 20), 0x1000, NULL); 
++	write_buffer = spdk_dma_zmalloc((6 << 20), 0x1000, NULL); 
+ 
+ 	return 0;
+ }
+diff --git a/libfs/src/storage/spdk/common.c b/libfs/src/storage/spdk/common.c
+index 7fc82da..b273491 100644
+--- a/libfs/src/storage/spdk/common.c
++++ b/libfs/src/storage/spdk/common.c
+@@ -46,15 +46,6 @@ float spdk_get_cpu_clock_speed(void)
+ 	return clock_speed;
+ }
+ 
+-static char *ealargs[] = {
+-	"spdk_setup", 
+-	"-c 0x1", 
+-	"-n 4", 
+-	"-m 1024",
+-	"--proc-type=auto",
+-	"--base-virtaddr=0x1000000000",
+-};
+-
+ unsigned int libspdk_get_n_lbas(void) {
+ 	const struct spdk_nvme_ns_data* nsdata = spdk_nvme_ns_get_data(g_namespaces->ns);
+ 	return nsdata->nsze;
+@@ -84,7 +75,6 @@ void show_spdk_stats(void)
+ int libspdk_init(void) 
+ {
+ 	int rc;
+-#if 0
+ 	struct spdk_env_opts opts;
+ 
+ 	/*
+@@ -95,19 +85,11 @@ int libspdk_init(void)
+ 	 */
+ 	spdk_env_opts_init(&opts);
+ 	opts.name = "libspdk";
+-	opts.shm_id = -1;
++	opts.shm_id = 10;
+ 	spdk_env_init(&opts);
+-#endif
+ 
+ 	clock_speed_mhz = spdk_get_cpu_clock_speed();
+ 
+-	printf("initing EAL\n");
+-	rc = rte_eal_init(sizeof(ealargs) / sizeof(ealargs[0]), ealargs);
+-	if (rc < 0) {
+-		fprintf(stderr, "could not initialize dpdk\n");
+-		return rc;
+-	}
+-
+ 	printf("Initializing NVMe Controllers....\n");
+ 
+ 	rc = spdk_nvme_probe(NULL, NULL, probe_cb, attach_cb, NULL);
+@@ -117,7 +99,7 @@ int libspdk_init(void)
+ 		return rc;
+ 	}
+ 
+-	g_namespaces->qpair = spdk_nvme_ctrlr_alloc_io_qpair(g_namespaces->ctrlr, 0);
++	g_namespaces->qpair = spdk_nvme_ctrlr_alloc_io_qpair(g_namespaces->ctrlr, NULL, 0);
+ 	if (g_namespaces->qpair == NULL) {
+ 		printf("ERROR: init_ns_worker_ctx() failed\n");
+ 		return rc;

@@ -1,0 +1,444 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <assert.h>
+
+#include "io/block_io.h"
+#include "filesystem/stat.h"
+#include "filesystem/fs.h"
+#include "global/global.h"
+#include "storage/storage.h"
+#include "log/log.h"
+#include "mlfs/kerncompat.h"
+
+#ifndef static_assert
+#define static_assert(a, b) do { switch (0) case 0: case (a): ; } while (0)
+#endif
+
+#define _min(a, b) ((a) < (b) ? (a) : (b))
+
+#define NINODES 10000
+
+// Disk layout:
+// [ sb block | inode blocks | free bitmap | data blocks | log blocks ]
+// [ inode block | free bitmap | data blocks | log blocks ] is a block group.
+// If data blocks is full, then file system will allocate a new block group.
+// Block group expension is not implemented yet.
+
+uint32_t nbitmap = g_fs_size_blks / (g_block_size_bytes * 8) + 1;
+uint32_t ninodeblocks = NINODES / IPB + 1;
+uint32_t nlog = g_log_size_blks;
+unsigned int nmeta;    // Number of meta blocks (boot, sb, nlog, inode, bitmap)
+unsigned int ndatablocks;  // Number of data blocks
+
+int fsfd = 0;
+struct disk_superblock ondisk_sb;
+char zeroes[g_block_size_bytes];
+addr_t freeinode = 1;
+addr_t freeblock;
+
+void balloc(int);
+void wsect(addr_t, void*);
+void rsect(addr_t sec, void *buf);
+void write_inode(addr_t, struct dinode*);
+void read_inode(addr_t inum, struct dinode *ip);
+addr_t mkfs_ialloc(uint8_t dev, uint16_t type);
+void iappend(uint32_t inum, void *p, int n);
+
+#define DEVID 3
+#undef SPDK
+//#define SPDK
+//#undef DEVDAX
+#define DEVDAX
+
+#ifdef SPDK
+static struct storage_operations storage_ops = {
+	.init = spdk_sync_io_init,
+	.read = spdk_sync_io_read,
+	.write = spdk_sync_io_write,
+	.exit = spdk_sync_io_exit,
+};
+#endif
+
+#ifdef DEVDAX
+#ifdef __cplusplus
+static struct storage_operations storage_ops = {
+	.init = dax_init,
+	.read = dax_read,
+	.read_unaligned = NULL,
+	.write = dax_write,
+	.write_unaligned = dax_write,
+	.erase = dax_erase,
+	.commit = NULL,
+	.exit = dax_exit,
+};
+#else
+static struct storage_operations storage_ops = {
+	.init = dax_init,
+	.read = dax_read,
+	.erase = dax_erase,
+	.write = dax_write,
+	.exit = dax_exit,
+};
+#endif
+#endif
+
+#define xint(x) x
+#define xshort(x) x
+
+int main(int argc, char *argv[])
+{
+	int i, cc, fd;
+	uint32_t rootino, mlfs_dir_ino;
+	struct dirent de;
+	char buf[g_block_size_bytes];
+	struct dinode din;
+	uint8_t dev_id;
+
+	static_assert(sizeof(int) == 4, "Integers must be 4 bytes!");
+
+	if(argc < 2){
+		fprintf(stderr, "Usage: mkfs dev_id <image name: optional>\n");
+		exit(-1);
+	}
+
+	dev_id = atoi(argv[1]);
+
+	printf("dev_id %d\n", dev_id);
+
+#if defined SPDK
+	printf("Formating fs with SPDK\n");
+#elif defined DEVDAX
+	printf("Formating fs with DEVDAX\n");
+#endif
+
+	/* all invariants check */
+
+	if (g_block_size_bytes % sizeof(struct dinode) != 0) {
+		printf("dinode size (%lu) is not power of 2\n",
+				sizeof(struct dinode));
+		exit(-1);
+	}
+
+	//mlfs_assert((g_block_size_bytes % sizeof(struct dirent)) == 0);
+	if (g_block_size_bytes % sizeof(struct dirent) != 0) {
+		printf("dirent (size %lu) should be power of 2\n",
+				sizeof(struct dirent));
+		exit(-1);
+	}
+
+	//mlfs_assert(sizeof(struct logheader) < g_block_size_bytes);
+	if (sizeof(struct logheader) > g_block_size_bytes) {
+		printf("size of logheader (%lu) should be less than %lu\n", 
+				sizeof(struct logheader), g_block_size_bytes);
+		exit(-1);
+	}
+
+	/* boot block + superblock + inode block + alloc bitmap block */
+	nmeta = 2 + ninodeblocks + nbitmap;
+	/* libmlfs does not need datablocks */
+	//ndatablocks = g_fs_size_blks - nmeta - nlog;
+	ndatablocks = 0;
+
+#if 0
+	// assume # of data blocks is at least 1/4 of # of log blocks
+	if (g_fs_size_blks < nmeta + nlog + nlog/4) {
+		printf("File system size is smaller than metadata block size\n");
+		printf("block size (bytes) %lu\n", g_block_size_bytes);
+		printf("# of metadata block %u (inode blocks %u, bitmap blocks %u)\n",
+				nmeta, ninodeblocks, nbitmap);
+		printf("# of log blocks %u\n", nlog);
+		printf("# of total file system blocks %lu\n", g_fs_size_blks);
+		exit(-1);
+	}
+#endif
+
+	// Fill superblock data
+	ondisk_sb.size = xint(g_fs_size_blks);
+	ondisk_sb.ndatablocks = xint(ndatablocks);
+	ondisk_sb.ninodes = xint(NINODES);
+	ondisk_sb.nlog = xint(nlog);
+	ondisk_sb.inode_start = xint(2);
+	ondisk_sb.bmap_start = xint(2 + ninodeblocks);
+	ondisk_sb.datablock_start = xint(2 + ninodeblocks + nbitmap);
+	ondisk_sb.log_start = xint(2 + ninodeblocks + nbitmap + ndatablocks);
+
+	if (ondisk_sb.size < ondisk_sb.log_start + g_log_size_blks) {
+		printf("disk size is too small\n");
+		printf("total disk size %lu\n", g_fs_size_blks);
+		printf("log block ends %lu\n", ondisk_sb.log_start + g_log_size_blks);
+		exit(-1);
+	}
+
+	assert(sizeof(ondisk_sb) <= g_block_size_bytes);
+
+	printf("Creating file system\n");
+	printf("----------------------------------------------------------------\n");
+	printf("nmeta %d (boot 1, super 1, inode blocks %u, bitmap blocks %u) \n"
+			"data blocks %u log blocks %u -- total %lu (%lu MB)\n",
+			nmeta, ninodeblocks, nbitmap, ndatablocks, nlog,
+			g_fs_size_blks, (g_fs_size_blks * g_block_size_bytes) >> 20);
+	printf("----------------------------------------------------------------\n");
+
+#if defined SPDK
+	storage_ops.init(DEVID, NULL);
+#elif defined DEVDAX
+	storage_ops.init(DEVID, g_dev_path[DEVID]);
+#else
+	if(argc < 3){
+		fprintf(stderr, "Usage: mkfs dev_id fs.img files...\n");
+		exit(-1);
+	}
+
+	fsfd = open(argv[2], O_RDWR|O_CREAT|O_TRUNC, 0666);
+	if(fsfd < 0){
+		perror(argv[2]);
+		exit(-1);
+	}
+#endif
+	freeblock = nmeta;     // the first free block that we can allocate
+
+	memset(zeroes, 0, g_block_size_bytes);
+
+	for(i = 0; i < g_fs_size_blks; i++)
+		wsect(i, zeroes);
+
+	memset(buf, 0, sizeof(buf));
+	memmove(buf, &ondisk_sb, sizeof(disk_sb));
+	wsect(1, buf);
+
+	printf("== create / directory\n");
+	printf("root inode(inum = %u) at block address %lx\n", 
+			rootino, IBLOCK(rootino, ondisk_sb));
+
+	rootino = mkfs_ialloc(dev_id, T_DIR);
+	assert(rootino == ROOTINO);
+
+	/* TODO: iappend has a bug in new file system format */
+	bzero(&de, sizeof(de));
+	de.inum = xshort(rootino);
+	strcpy(de.name, ".");
+	iappend(rootino, &de, sizeof(de));
+
+	bzero(&de, sizeof(de));
+	de.inum = xshort(rootino);
+	strcpy(de.name, "..");
+	iappend(rootino, &de, sizeof(de));
+
+#if 1
+	// Create /mlfs directory
+	mlfs_dir_ino = mkfs_ialloc(dev_id, T_DIR);
+	printf("== create /mlfs directory\n");
+	printf("/mlfs inode(inum = %u) at block address %lx\n", 
+			rootino, IBLOCK(rootino, ondisk_sb));
+
+	bzero(&de, sizeof(de));
+	de.inum = xshort(mlfs_dir_ino);
+	strcpy(de.name, ".");
+	iappend(mlfs_dir_ino, &de, sizeof(de));
+
+	bzero(&de, sizeof(de));
+	de.inum = xshort(rootino);
+	strcpy(de.name, "..");
+	iappend(mlfs_dir_ino, &de, sizeof(de));
+
+	// append to root directory
+	bzero(&de, sizeof(de));
+	de.inum = xshort(mlfs_dir_ino);
+	strcpy(de.name, "mlfs");
+	iappend(rootino, &de, sizeof(de));
+#endif
+
+#if 0
+	for(i = 2; i < argc; i++){
+		assert(index(argv[i], '/') == 0);
+
+		if((fd = open(argv[i], 0)) < 0){
+			perror(argv[i]);
+			exit(1);
+		}
+
+		// Skip leading _ in name when writing to file system.
+		// The binaries are named _rm, _cat, etc. to keep the
+		// build operating system from trying to execute them
+		// in place of system binaries like rm and cat.
+		if(argv[i][0] == '_')
+			++argv[i];
+
+		inum = mkfs_ialloc(T_FILE);
+
+		bzero(&de, sizeof(de));
+		de.inum = xshort(inum);
+		strncpy(de.name, argv[i], DIRSIZ);
+		iappend(rootino, &de, sizeof(de));
+
+		while((cc = read(fd, buf, sizeof(buf))) > 0)
+			iappend(inum, buf, cc);
+
+		close(fd);
+	}
+#endif
+
+	// fix size of root inode dir
+	read_inode(rootino, &din);
+	din.size = xint(din.size);
+	write_inode(rootino, &din);
+
+	balloc(freeblock);
+
+	exit(0);
+}
+
+void wsect(addr_t sec, void *buf)
+{
+#if defined SPDK
+	storage_ops.write(buf, sec, g_block_size_bytes);
+#elif defined DEVDAX
+	storage_ops.write(DEVID, (uint8_t *)buf, sec, g_block_size_bytes);
+#else
+	if(lseek(fsfd, sec * g_block_size_bytes, 0) != sec * g_block_size_bytes) {
+		perror("lseek");
+		exit(1);
+	}
+
+	if(write(fsfd, buf, g_block_size_bytes) != g_block_size_bytes) {
+		perror("write");
+		exit(1);
+	}
+#endif
+}
+
+void write_inode(addr_t inum, struct dinode *ip)
+{
+	char buf[g_block_size_bytes];
+	addr_t inode_block;
+	struct dinode *dip;
+
+	inode_block = IBLOCK(inum, ondisk_sb);
+	rsect(inode_block, buf);
+
+	dip = (struct dinode *)buf + (inum % IPB);
+	*dip = *ip;
+
+	/*
+	printf("%s: inode %u (addr %lu) type %u size %lu\n",
+				__func__, inum, inode_block, dip->itype, dip->size);
+	*/
+	wsect(inode_block, buf);
+}
+
+void read_inode(addr_t inum, struct dinode *ip)
+{
+	char buf[g_block_size_bytes];
+	addr_t bn;
+	struct dinode *dip;
+
+	bn = IBLOCK(inum, ondisk_sb);
+	rsect(bn, buf);
+
+	dip = (struct dinode *)buf + (inum % IPB);
+	*ip = *dip;
+}
+
+void rsect(addr_t sec, void *buf)
+{
+#if defined SPDK
+	storage_ops.read(buf, sec, g_block_size_bytes);
+#elif defined DEVDAX
+	storage_ops.read(DEVID, (uint8_t *)buf, sec, g_block_size_bytes);
+#else
+	if(lseek(fsfd, sec * g_block_size_bytes, 0) != sec * g_block_size_bytes){
+		perror("lseek");
+		exit(1);
+	}
+
+	if(read(fsfd, buf, g_block_size_bytes) != g_block_size_bytes) {
+		perror("read");
+		exit(1);
+	}
+#endif
+}
+
+addr_t mkfs_ialloc(uint8_t dev, uint16_t type)
+{
+	uint32_t inum = freeinode++;
+	struct dinode din;
+
+	bzero(&din, sizeof(din));
+	din.dev = dev;
+	din.itype = xshort(type);
+	din.nlink = xshort(1);
+	din.size = cpu_to_le64(0);
+
+	memset(din.addrs, 0, sizeof(addr_t) * (NDIRECT + 1));
+	write_inode(inum, &din);
+	return inum;
+}
+
+void balloc(int used)
+{
+	uchar buf[g_block_size_bytes];
+	int i;
+
+	printf("balloc: first %d blocks have been allocated\n", used);
+	assert(used < g_block_size_bytes*8);
+	bzero(buf, g_block_size_bytes);
+	for(i = 0; i < used; i++){
+		buf[i/8] = buf[i/8] | (0x1 << (i%8));
+	}
+	printf("balloc: write bitmap block at sector %lu\n", ondisk_sb.bmap_start);
+	wsect(ondisk_sb.bmap_start, buf);
+}
+
+// append new data (xp) to an inode (inum)
+// 1. allocate new block
+// 2. update inode pointers for data block (dinode.addrs) - in-memory
+// 3. write data blocks - on-disk
+// 4. update inode blocks - on-disk
+void iappend(uint32_t inum, void *xp, int n)
+{
+	char *p = (char*)xp;
+	addr_t fbn, n1;
+	offset_t off;
+	struct dinode din;
+	char buf[g_block_size_bytes];
+	addr_t indirect[NINDIRECT];
+	addr_t block_address;
+
+	read_inode(inum, &din);
+	off = xint(din.size);
+
+	/* TODO: fix this with extent */
+	printf("append inum %d at off %ld sz %d\n", inum, off, n);
+	while(n > 0) {
+		// compute the number of block
+		fbn = off / g_block_size_bytes;
+		assert(fbn < MAXFILE);
+		if(fbn < NDIRECT) {
+			if(xint(din.addrs[fbn]) == 0) {
+				// sequential allocation for freeblock
+				din.addrs[fbn] = xint(freeblock++);
+			}
+			block_address = xint(din.addrs[fbn]);
+		} 
+		else {
+			printf("Size over NDIRECT does not support yet\n");
+		}
+
+		n1 = _min(n, (fbn + 1) * g_block_size_bytes - off);
+		rsect(block_address, buf);
+		//update block (buf) with data pointer (p)
+		bcopy(p, buf + off - (fbn * g_block_size_bytes), n1);
+		wsect(block_address, buf);
+		//printf("%s: %u %d\n", __func__, block_address, inum);
+
+		n -= n1;
+		off += n1;
+		p += n1;
+	}
+
+	din.size = xint(off);
+	write_inode(inum, &din);
+}
