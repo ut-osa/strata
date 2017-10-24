@@ -1,7 +1,8 @@
 Strata: A Cross Media File System
 ==================================
 
-Strata is a research prototype file system, presented in SOSP 2017: [Strata].
+Strata is a research prototype file system, presented in SOSP 2017([Strata]).
+
 Strata is developed and tested on Ubuntu 16.04 LTS, Linux kernel 4.8.12 and gcc version 5.4.0.
 
 This repository contains initial source code and tests. Benchmarks will be released soon.
