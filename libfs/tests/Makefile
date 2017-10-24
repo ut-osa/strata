@@ -1,6 +1,6 @@
 CC = gcc -std=c99
 #CC = c99
-EXE = iotest file_basic small_io falloc_test ftrunc_test lock_test lock_perf simple_spdk_test rbtree_test dir_test many_files_test fork_io readdir_test append_test fwrite_fread partial_update_test
+EXE = iotest file_basic small_io falloc_test ftrunc_test lock_test lock_perf simple_spdk_test dir_test many_files_test fork_io readdir_test append_test fwrite_fread partial_update_test
 #$(info $(EXE))
 
 CUR_DIR = $(shell pwd)
@@ -88,9 +88,6 @@ lock_test: lock_test.c
 
 lock_perf: lock_perf.c
 	$(CC) -g -o $@ $^ -I$(INCLUDES) ../build/concurrency/locks.o ../build/concurrency/condvar.o -pthread -lrt -DPERF_mlfs
-
-rbtree_test: rbtree_test.cc
-	$(CXX) -std=c++11 -g -o $@ $^ -I$(INCLUDES) ../build/ds/rbtree.o -pthread -lrt 
 
 dir_test: dir_test.c
 	$(CC) -O0 -g -o $@ $^ $(CFLAGS) -L$(LIBFS_DIR) -lmlfs -lm -lrt -L$(LIBSPDK_DIR) -lspdk -L$(NVML_DIR) -lpmem -lpthread -lm -lrt -Wl,-rpath=$(abspath $(NVML_DIR)) -I$(INCLUDES) $(LDFLAGS)
