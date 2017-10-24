@@ -1,0 +1,281 @@
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/dlfcn/Versions glibc-2.19/dlfcn/Versions
+--- glibc-2.19.org/dlfcn/Versions	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/dlfcn/Versions	2016-08-01 15:29:52.203186997 -0500
+@@ -14,4 +14,7 @@
+   GLIBC_PRIVATE {
+     _dlfcn_hook;
+   }
++  SHIM {
++    syscalldb;
++  }
+ }
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/elf/Makefile glibc-2.19/elf/Makefile
+--- glibc-2.19.org/elf/Makefile	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/elf/Makefile	2016-08-01 00:21:37.455459198 -0500
+@@ -21,7 +21,7 @@
+ 
+ include ../Makeconfig
+ 
+-headers		= elf.h bits/elfclass.h link.h bits/link.h
++headers		= elf.h bits/elfclass.h link.h bits/link.h syscalldb.h
+ routines	= $(dl-routines) dl-support dl-iteratephdr \
+ 		  dl-addr enbl-secure dl-profstub \
+ 		  dl-origin dl-libc dl-sym dl-tsd dl-sysdep
+@@ -31,7 +31,8 @@
+ dl-routines	= $(addprefix dl-,load lookup object reloc deps hwcaps \
+ 				  runtime error init fini debug misc \
+ 				  version profile conflict tls origin scope \
+-				  execstack caller open close trampoline)
++				  execstack caller open close trampoline) \
++				  syscalldb syscallas
+ ifeq (yes,$(use-ldconfig))
+ dl-routines += dl-cache
+ endif
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/elf/Versions glibc-2.19/elf/Versions
+--- glibc-2.19.org/elf/Versions	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/elf/Versions	2016-08-01 15:57:42.451143824 -0500
+@@ -24,6 +24,9 @@
+     _dl_sym; _dl_vsym;
+     __libc_dlclose; __libc_dlopen_mode; __libc_dlsym;
+   }
++  SHIM {
++    syscalldb; glibc_option;
++  }
+ }
+ 
+ ld {
+@@ -62,4 +65,7 @@
+     # Pointer protection.
+     __pointer_chk_guard;
+   }
++  SHIM {
++    syscalldb; glibc_vers_2_17; glibc_option; register_library;
++  }
+ }
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/Makeconfig glibc-2.19/Makeconfig
+--- glibc-2.19.org/Makeconfig	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/Makeconfig	2016-08-01 00:21:37.279459203 -0500
+@@ -775,7 +775,8 @@
+ # current directory.
+ +includes = -I$(..)include $(if $(subdir),$(objpfx:%/=-I%)) \
+ 	    $(+sysdep-includes) $(includes) \
+-	    $(patsubst %/,-I%,$(..)) $(libio-include) -I. $(sysincludes)
++	    $(patsubst %/,-I%,$(..)) $(libio-include) -I. $(sysincludes) \
++        -I$(common-objpfx)../src/include
+ 
+ # Since libio has several internal header files, we use a -I instead
+ # of many little headers in the include directory.
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/Makefile glibc-2.19/Makefile
+--- glibc-2.19.org/Makefile	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/Makefile	2016-08-01 00:21:37.439459199 -0500
+@@ -177,6 +177,9 @@
+ install-others-nosubdir: $(installed-stubs)
+ endif
+ 
++# Add our weak symbols.
++CFLAGS-syscalldb.c = -fPIC
++
+ 
+ # Since stubs.h is never needed when building the library, we simplify the
+ # hairy installation process by producing it in place only as the last part
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/nptl/Versions glibc-2.19/nptl/Versions
+--- glibc-2.19.org/nptl/Versions	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/nptl/Versions	2016-08-01 15:29:19.699187837 -0500
+@@ -31,6 +31,9 @@
+     # Internal libc interface to libpthread
+     __libc_dl_error_tsd;
+   }
++  SHIM {
++    syscalldb; glibc_option;
++  }
+ }
+ 
+ libpthread {
+@@ -262,4 +265,8 @@
+     __pthread_clock_gettime; __pthread_clock_settime;
+     __pthread_unwind; __pthread_get_minstack;
+   }
++
++  SHIM {
++    syscalldb; glibc_option;
++  }
+ }
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/sysdeps/unix/sysv/linux/x86_64/syscall.S glibc-2.19/sysdeps/unix/sysv/linux/x86_64/syscall.S
+--- glibc-2.19.org/sysdeps/unix/sysv/linux/x86_64/syscall.S	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/sysdeps/unix/sysv/linux/x86_64/syscall.S	2016-08-01 00:21:37.175459205 -0500
+@@ -34,7 +34,8 @@
+ 	movq %r8, %r10
+ 	movq %r9, %r8
+ 	movq 8(%rsp),%r9	/* arg6 is on the stack.  */
+-	syscall			/* Do the system call.  */
++	//change to new syscall macro
++	SYSCALL			/* Do the system call.  */
+ 	cmpq $-4095, %rax	/* Check %rax for error.  */
+ 	jae SYSCALL_ERROR_LABEL	/* Jump to error handler if error.  */
+ 	ret			/* Return to caller.  */
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/sysdeps/unix/sysv/linux/x86_64/sysdep.h glibc-2.19/sysdeps/unix/sysv/linux/x86_64/sysdep.h
+--- glibc-2.19.org/sysdeps/unix/sysv/linux/x86_64/sysdep.h	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/sysdeps/unix/sysv/linux/x86_64/sysdep.h	2016-08-01 15:15:32.443209220 -0500
+@@ -21,6 +21,7 @@
+ /* There is some commonality.  */
+ #include <sysdeps/unix/x86_64/sysdep.h>
+ #include <tls.h>
++#include "syscalldb.h"
+ 
+ #ifdef IS_IN_rtld
+ # include <dl-sysdep.h>		/* Defines RTLD_PRIVATE_ERRNO.  */
+@@ -172,11 +173,33 @@
+ 
+     Syscalls of more than 6 arguments are not supported.  */
+ 
++# undef SYSCALL
++/*
++# define SYSCALL(sname)	\
++	pushq %rbx;		\
++	movq syscalldb@GOTPCREL(%rip), %rbx; \
++	cmp $0, %rbx;	\
++	je undef;		\
++	call *%rbx;		\
++	popq %rbx;		\
++	jmp ok;			\
++	undef_##sname:	\
++		ud2;		\
++	ok_##sname:
++*/
++# define SYSCALL	\
++	pushq %rbx;		\
++	movq syscalldb@GOTPCREL(%rip), %rbx; \
++	call *%rbx;		\
++	popq %rbx;		\
++
++# undef	DO_CALL
++
+ # undef	DO_CALL
+ # define DO_CALL(syscall_name, args)		\
+     DOARGS_##args				\
+     movl $SYS_ify (syscall_name), %eax;		\
+-    syscall;
++    SYSCALL;
+ 
+ # define DOARGS_0 /* nothing */
+ # define DOARGS_1 /* nothing */
+@@ -187,28 +210,28 @@
+ # define DOARGS_6 DOARGS_5
+ 
+ #else	/* !__ASSEMBLER__ */
+-/* Define a macro which expands inline into the wrapper code for a system
+-   call.  */
++	/* Define a macro which expands inline into the wrapper code for a system
++	   call.  */
+ # undef INLINE_SYSCALL
+ # define INLINE_SYSCALL(name, nr, args...) \
+-  ({									      \
+-    unsigned long int resultvar = INTERNAL_SYSCALL (name, , nr, args);	      \
+-    if (__builtin_expect (INTERNAL_SYSCALL_ERROR_P (resultvar, ), 0))	      \
+-      {									      \
+-	__set_errno (INTERNAL_SYSCALL_ERRNO (resultvar, ));		      \
+-	resultvar = (unsigned long int) -1;				      \
+-      }									      \
+-    (long int) resultvar; })
+-
+-/* Define a macro with explicit types for arguments, which expands inline
+-   into the wrapper code for a system call.  It should be used when size
+-   of any argument > size of long int.  */
++	  ({									      \
++		unsigned long int resultvar = INTERNAL_SYSCALL (name, , nr, args);	      \
++		if (__builtin_expect (INTERNAL_SYSCALL_ERROR_P (resultvar, ), 0))	      \
++		  {									      \
++		__set_errno (INTERNAL_SYSCALL_ERRNO (resultvar, ));		      \
++		resultvar = (unsigned long int) -1;				      \
++		  }									      \
++		(long int) resultvar; })
++
++	/* Define a macro with explicit types for arguments, which expands inline
++	   into the wrapper code for a system call.  It should be used when size
++	   of any argument > size of long int.  */
+ # undef INLINE_SYSCALL_TYPES
+ # define INLINE_SYSCALL_TYPES(name, nr, args...) \
+-  ({									      \
+-    unsigned long int resultvar = INTERNAL_SYSCALL_TYPES (name, , nr, args);  \
+-    if (__builtin_expect (INTERNAL_SYSCALL_ERROR_P (resultvar, ), 0))	      \
+-      {									      \
++	  ({									      \
++		unsigned long int resultvar = INTERNAL_SYSCALL_TYPES (name, , nr, args);  \
++		if (__builtin_expect (INTERNAL_SYSCALL_ERROR_P (resultvar, ), 0))	      \
++		  {									      \
+ 	__set_errno (INTERNAL_SYSCALL_ERRNO (resultvar, ));		      \
+ 	resultvar = (unsigned long int) -1;				      \
+       }									      \
+@@ -223,9 +246,10 @@
+     LOAD_ARGS_##nr (args)						      \
+     LOAD_REGS_##nr							      \
+     asm volatile (							      \
+-    "syscall\n\t"							      \
++	"movq syscalldb@GOTPCREL(%%rip), %%rbx\n\t"		\
++	"call *%%rbx\n\t"								\
+     : "=a" (resultvar)							      \
+-    : "0" (name) ASM_ARGS_##nr : "memory", "cc", "r11", "cx");		      \
++    : "0" (name) ASM_ARGS_##nr : "memory", "cc", "r11", "cx", "bx");	\
+     (long int) resultvar; })
+ # undef INTERNAL_SYSCALL
+ # define INTERNAL_SYSCALL(name, err, nr, args...) \
+@@ -237,9 +261,10 @@
+     LOAD_ARGS_TYPES_##nr (args)						      \
+     LOAD_REGS_TYPES_##nr (args)						      \
+     asm volatile (							      \
+-    "syscall\n\t"							      \
++	"movq syscalldb@GOTPCREL(%%rip), %%rbx\n\t"		\
++	"call *%%rbx\n\t"								\
+     : "=a" (resultvar)							      \
+-    : "0" (name) ASM_ARGS_##nr : "memory", "cc", "r11", "cx");		      \
++    : "0" (name) ASM_ARGS_##nr : "memory", "cc", "r11", "cx", "bx");	\
+     (long int) resultvar; })
+ # undef INTERNAL_SYSCALL_TYPES
+ # define INTERNAL_SYSCALL_TYPES(name, err, nr, args...) \
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/sysdeps/unix/sysv/linux/x86_64/vfork.S glibc-2.19/sysdeps/unix/sysv/linux/x86_64/vfork.S
+--- glibc-2.19.org/sysdeps/unix/sysv/linux/x86_64/vfork.S	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/sysdeps/unix/sysv/linux/x86_64/vfork.S	2016-08-01 00:21:37.171459205 -0500
+@@ -38,7 +38,7 @@
+ 
+ 	/* Stuff the syscall number in RAX and enter into the kernel.  */
+ 	movl	$SYS_ify (vfork), %eax
+-	syscall
++	SYSCALL
+ 
+ 	/* Push back the return PC.  */
+ 	pushq	%rdi
+diff -urN --recursive --no-dereference -x tags -x 'cscope.*' glibc-2.19.org/Versions.def glibc-2.19/Versions.def
+--- glibc-2.19.org/Versions.def	2014-02-07 03:04:38.000000000 -0600
++++ glibc-2.19/Versions.def	2016-08-01 15:22:56.815197734 -0500
+@@ -41,6 +41,7 @@
+   GCC_3.0
+ %endif
+   GLIBC_PRIVATE
++  SHIM
+ }
+ libcrypt {
+   GLIBC_2.0
+@@ -50,6 +51,7 @@
+   GLIBC_2.1
+   GLIBC_2.3.3
+   GLIBC_2.3.4
++  SHIM
+ }
+ libm {
+   GLIBC_2.0
+@@ -108,6 +110,7 @@
+   GLIBC_2.18
+   GLIBC_2.19
+   GLIBC_PRIVATE
++  SHIM
+ }
+ libresolv {
+   GLIBC_2.0
+@@ -135,6 +138,7 @@
+   GLIBC_2.3
+   GLIBC_2.4
+   GLIBC_PRIVATE
++  SHIM
+ }
+ libthread_db {
+   GLIBC_2.1.3
