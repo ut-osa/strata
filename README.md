@@ -42,6 +42,12 @@ cd test
 make
 ~~~
 
+##### 6. Build libshim
+~~
+cd shim/libshim
+make
+~~
+
 ### Running Strata ###
 
 ##### 1. Setup NVM (DEV-DAX) emulation
