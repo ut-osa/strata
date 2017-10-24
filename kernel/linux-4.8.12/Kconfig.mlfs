@@ -1,0 +1,7 @@
+menu "MLFS"
+
+config MLFS
+	tristate "Enable performance model for EXT4-DAX"
+	default y
+
+endmenu
