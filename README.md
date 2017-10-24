@@ -69,7 +69,13 @@ To rollback to previous setting,
 sudo ./use_dax.sh unbind
 ~~~
 
-##### 3. Setup UIO for SPDK
+##### 3. Setup storage size
+This step requires rebuilding of Libfs and KernFS.
+~~~
+TODO: Some instructions to setup storage size (by a script or manually)
+~~~
+
+##### 4. Setup UIO for SPDK
 ~~~
 cd util
 sudo ./uio_setup.sh linux config
@@ -79,7 +85,7 @@ To rollback to previous setting,
 sudo ./uio_setup.sh linux reset
 ~~~
 
-##### 4. Formatting storages
+##### 5. Formatting storages
 ~~~
 cd libfs
 sudo ./bin/mlfs.mlfs <dev id>
@@ -90,13 +96,19 @@ dev id is a device identifier used in Strata (hardcoded).<br/>
 3 : HDD shared area <br/>
 4 : Operation log of processes <br/>
 
-##### 5. Run KernelFS
+If you encounter an error message, "mmap invalid argument",
+it means kernel does not allow mmap for NVM emulation.
+Usually, incorrect (or unaligned) setting of storage sizes (at step 3) causes
+the problem.
+Please make sure that your storage size is correct in "libfs/src/storage/storage.h"
+
+##### 6. Run KernelFS
 ~~~
 cd kernfs/tests
 sudo ./run.sh kernfs
 ~~~
 
-##### 6. Run testing problem
+##### 7. Run testing problem
 ~~~
 cd libfs/tests
 make
