@@ -52,6 +52,10 @@ cd jemalloc-4.5.0
 ./configure
 make
 ~~~
+
+For SPDK build error, please check a SPDK website (http://www.spdk.io/doc/getting_started.html)
+
+For NVML build error, please check a NVML repository (https://github.com/pmem/nvml/)
 ##### 4. Build Libfs
 ~~~
 cd libfs
