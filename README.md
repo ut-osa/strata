@@ -7,11 +7,11 @@ Assume current directory is a project root directory.
 ##### 0. Change memory configuration
 1. Open libfs/src/storage/storage.h
 2. Modify `dev_size` array values with each storage size (the same as in your grub conf, see the RUNNING STRATA section) in bytes.
-    dev_size[0] could be always 0 (not used)
-    dev_size[1] dax0.0 size
-    dev_size[2] ssd size : just put 0 for now
-    dev_size[3] HDD size : put 0 for now
-    dev_size[4] dax1.0 size
+    - dev_size[0]: could be always 0 (not used)
+    - dev_size[1]: dax0.0 size
+    - dev_size[2]: ssd size : just put 0 for now
+    - dev_size[3]: HDD size : put 0 for now
+    - dev_size[4]: dax1.0 size
 
 ##### 1. Build kernel
 ~~~
