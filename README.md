@@ -36,7 +36,7 @@ sudo make modules_install ; sudo make install
 This step requires reboot your machine after installing the new kernel.
 ##### 2. Build glibc
 
-Building glibc might not be an easy task in some machines. We provide pre-built libc binaries.
+Building glibc might not be an easy task in some machines. We provide pre-built libc binaries in "shim/glibc-build".
 If you keep failing to build glibc, I recommand to use the pre-built glibc for your testing.
 
 ~~~
