@@ -8,6 +8,10 @@ Strata is developed and tested on Ubuntu 16.04 LTS, Linux kernel 4.8.12 and gcc 
 This repository contains initial source code and tests. Benchmarks will be released soon.
 As a research prototype, Strata has several limitations, described in [Limitations section](#limitations)
 
+To run NVM emulation, your machine should have enough DRAM for testing.
+Kernel will reserve the DRAM for NVM emulation. Strata requires at least two partitions of NVM: 
+operation log (1 - 2 GB) and NVM shared area (It depends on your test. I recommend to use more than 8 GB at least).
+
 ### Building Strata ###
 Assume current directory is a project root directory.
 
@@ -26,7 +30,10 @@ cd kernel/kbuild
 make -f Makefile.setup .config
 make -f Makefile.setup
 make -j
+sudo make modules_install ; sudo make install
 ~~~
+
+This step requires reboot your machine after installing the new kernel.
 ##### 2. Build glibc
 **TODO: Add instruction to use pre-built libc binaries.**
 ~~~
