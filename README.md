@@ -8,7 +8,7 @@ version 5.4.0.
 
 This repository contains initial source code and tests. Benchmarks will be
 released soon. As a research prototype, Strata has several limitations,
-described in [Limitations section](#limitations)
+described in the [limitations section](#limitations).
 
 To run NVM emulation, your machine should have enough DRAM for testing. Kernel
 will reserve the DRAM for NVM emulation. Strata requires at least two
@@ -18,21 +18,21 @@ your test. I recommend to use more than 8 GB at least).
 ### Building Strata ###
 Assume current directory is a project root directory.
 
-##### 0. Change memory configuration
+##### 1. Change memory configuration
 ~~~
 ./utils/change_dev_size.py [dax0.0] [SSD] [HDD] [dax1.0]
 ~~~
 This script does the following:
-1. Opens libfs/src/storage/storage.h
+1. Opens `libfs/src/storage/storage.h`
 2. Modifies`dev_size` array values with each storage size (the same as in your
-   grub conf, see the RUNNING STRATA section) in bytes.
+   grub conf, see the [running Strata](#runningstrata) section) in bytes.
     - `dev_size[0]`: could be always 0 (not used)
     - `dev_size[1]`: dax0.0 size
     - `dev_size[2]`: SSD size : just put 0 for now
     - `dev_size[3]`: HDD size : put 0 for now
     - `dev_size[4]`: dax1.0 size
 
-##### 1. Build kernel
+##### 2. Build kernel
 ~~~
 cd kernel/kbuild
 make -f Makefile.setup .config
@@ -42,7 +42,7 @@ sudo make modules_install ; sudo make install
 ~~~
 
 This step requires reboot your machine after installing the new kernel.
-##### 2. Build glibc
+##### 3. Build glibc
 
 Building glibc might not be an easy task in some machines. We provide pre-built libc binaries in "shim/glibc-build".
 If you keep failing to build glibc, I recommand to use the pre-built glibc for your testing.
@@ -51,7 +51,7 @@ If you keep failing to build glibc, I recommand to use the pre-built glibc for y
 cd shim
 make
 ~~~
-##### 3. Build dependent libraries (SPDK, NVML, JEMALLOC)
+##### 4. Build dependent libraries (SPDK, NVML, JEMALLOC)
 ~~~
 cd libfs/lib
 git clone https://github.com/pmem/nvml
@@ -67,25 +67,25 @@ make
 For SPDK build errors, please check a SPDK website (http://www.spdk.io/doc/getting_started.html)
 
 For NVML build errors, please check a NVML repository (https://github.com/pmem/nvml/)
-##### 4. Build Libfs
+##### 5. Build Libfs
 ~~~
 cd libfs
 make
 ~~~
-##### 5. Build KernelFS
+##### 6. Build KernelFS
 ~~~
 cd kernfs
 make
 cd tests
 make
 ~~~
-##### 6. Build libshim
+##### 7. Build libshim
 ~~~
 cd shim/libshim
 make
 ~~~
 
-### Running Strata ###
+### <a name="runningstrata"></a>Running Strata ###
 
 ##### 1. Setup NVM (DEV-DAX) emulation
 Strata emulates NVM using a physically contiguous memory region, and relies on
