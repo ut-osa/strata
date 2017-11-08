@@ -1,0 +1,16 @@
+# Build directories.
+kernel/kbuild
+!kernel/kbuild/Makefile.setup
+kernfs/build
+
+# Build files.
+libfs/src/storage/spdk/async.d
+libfs/src/storage/spdk/async.o
+libfs/src/storage/spdk/common.d
+libfs/src/storage/spdk/common.o
+libfs/src/storage/spdk/libspdk.so
+libfs/src/storage/spdk/sync.d
+libfs/src/storage/spdk/sync.o
+
+# Don't commit unzipped jemalloc.
+libfs/lib/jemalloc-4.5.0
