@@ -138,7 +138,7 @@ sudo ./uio_setup.sh linux reset
 ##### 5. Formatting storages
 ~~~
 cd libfs
-sudo ./bin/mlfs.mlfs <dev id>
+sudo ./bin/mkfs.mlfs <dev id>
 ~~~
 dev id is a device identifier used in Strata (hardcoded).<br/>
 1 : NVM shared area <br/>
