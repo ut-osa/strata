@@ -155,6 +155,7 @@ Please make sure that your storage size is correct in "libfs/src/storage/storage
 ##### 6. Run KernelFS
 ~~~
 cd kernfs/tests
+make
 sudo ./run.sh kernfs
 ~~~
 
