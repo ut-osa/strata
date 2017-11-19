@@ -141,10 +141,10 @@ cd libfs
 sudo ./bin/mkfs.mlfs <dev id>
 ~~~
 dev id is a device identifier used in Strata (hardcoded).<br/>
-1 : NVM shared area <br/>
+1 : NVM shared area (dax0.0)<br/>
 2 : SSD shared area <br/>
 3 : HDD shared area <br/>
-4 : Operation log of processes <br/>
+4 : Operation log of processes (dax1.0)<br/>
 
 If you encounter an error message, "mmap invalid argument",
 it means kernel does not allow mmap for NVM emulation.
@@ -207,7 +207,7 @@ For debugging, DIGEST_OPT, DIOMERGE, DCONCURRENT is disabled for now
 
 ### Limitations ###
 
-1. KernelFS is currently implmented in user-level.
+1. KernelFS is currently implemented in user-level.
 2. Leases are not fully implemented.
 3. A directory could contain up to 1000 files.
 4. mmap is not supported yet.
