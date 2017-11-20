@@ -183,7 +183,7 @@ MLFS_FLAGS += -DUSE_SSD
 `DKLIB_HASH` - use klib hashing for log hash table <br/>
 `DUSE_SSD`, `DUSE_HDD` - make LibFS to use SSD and HDD <br/>
 
-###### 2. KernelFS configuration ######
+##### 2. KernelFS configuration #####
 ~~~
 #MLFS_FLAGS = -DKERNFS
 MLFS_FLAGS += -DBALLOC
@@ -204,6 +204,18 @@ MLFS_FLAGS += -DBALLOC
 `DMIGRATION` - allow data migration. It requires turning on `DUSE_SSD` <br/>
 
 For debugging, DIGEST_OPT, DIOMERGE, DCONCURRENT is disabled for now
+
+### Debugging ###
+
+Here are some common issues and how we were able to resolve them.
+
+1. `sudo ./run.sh kernfs` or `sudo ./run.sh iotest ...` segfaults.
+
+- Make sure to run `sudo ./bin/mkfs.mlfs` on all devices used for testing.
+   + `sudo ./bin/mkfs.mlfs 1` for `dax0.0` (required)
+   + `sudo ./bin/mkfs.mlfs 4` for `dax1.0` (required)
+   + `sudo ./bin/mkfs.mlfs 2` for SSD area (only if `DUSE_SSD` is defined)
+   + `sudo ./bin/mkfs.mlfs 3` for HDD area (only if `DUSE_HDD` is defined)
 
 ### Limitations ###
 
