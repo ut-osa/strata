@@ -24,7 +24,7 @@ extern "C" {
 #define static_assert(a, b) do { switch (0) case 0: case (a): ; } while (0)
 #endif
 
-#define dbg_printf 
+#define dbg_printf
 //#define dbg_printf printf
 
 // In-kernel fs Disk layout:
@@ -201,15 +201,15 @@ int main(int argc, char *argv[])
 	/* nmeta = Empty block + Superblock + inode block + block allocation bitmap block */
 	if (dev_id == g_root_dev) {
 		nmeta = 2 + ninodeblocks + nbitmap;
-		ndatablocks = file_size_blks - nmeta; 
+		ndatablocks = file_size_blks - nmeta;
 		nlog = 0;
-	} 
-	// SSD and HDD case.	
-	else if (dev_id <= g_hdd_dev) { 
+	}
+	// SSD and HDD case.
+	else if (dev_id <= g_hdd_dev) {
 		nmeta = 2 + ninodeblocks + nbitmap;
-		ndatablocks = file_size_blks - nmeta; 
+		ndatablocks = file_size_blks - nmeta;
 		nlog = 0;
-	} 
+	}
 	// Per-application log.
 	else {
 		nmeta = 2 + ninodeblocks + nbitmap;
@@ -224,7 +224,7 @@ int main(int argc, char *argv[])
 	ondisk_sb.nlog = nlog;
 	ondisk_sb.inode_start = 2;
 	ondisk_sb.bmap_start = 2 + ninodeblocks;
-	ondisk_sb.datablock_start = nmeta; 
+	ondisk_sb.datablock_start = nmeta;
 	ondisk_sb.log_start = ondisk_sb.datablock_start + ndatablocks;
 
 	assert(sizeof(ondisk_sb) <= g_block_size_bytes);
@@ -235,16 +235,16 @@ int main(int argc, char *argv[])
 	printf("nmeta %d (boot 1, super 1, inode blocks %u, bitmap blocks %u) \n"
 			"[ inode start %lu, bmap start %lu, datablock start %lu, log start %lu ] \n"
 			": data blocks %lu log blocks %lu -- total %lu (%lu MB)\n",
-			nmeta, 
-			ninodeblocks, 
+			nmeta,
+			ninodeblocks,
 			nbitmap,
-			ondisk_sb.inode_start, 
-			ondisk_sb.bmap_start, 
+			ondisk_sb.inode_start,
+			ondisk_sb.bmap_start,
 			ondisk_sb.datablock_start,
 			ondisk_sb.log_start,
-			ndatablocks, 
+			ndatablocks,
 			nlog,
-			file_size_blks, 
+			file_size_blks,
 			(file_size_blks * g_block_size_bytes) >> 20);
 	printf("----------------------------------------------------------------\n");
 
@@ -253,7 +253,7 @@ int main(int argc, char *argv[])
 	else if (storage_mode == SPDK) {
 		storage_spdk.init(dev_id, NULL);
 	} else if (storage_mode == HDD) {
-		storage_hdd.init(dev_id, g_dev_path[dev_id]); 
+		storage_hdd.init(dev_id, g_dev_path[dev_id]);
 	} else {
 		fsfd = open(argv[1], O_RDWR|O_CREAT|O_TRUNC, 0666);
 		if(fsfd < 0){
@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
 		for(i = 0; i < ondisk_sb.datablock_start; i++)
 			wsect(i, (uint8_t *)zeroes);
 	} else {
-		for(i = 0; i < file_size_blks - 1; i++) 
+		for(i = 0; i < file_size_blks - 1; i++)
 			wsect(i, (uint8_t *)zeroes);
 	}
 #else
@@ -298,7 +298,7 @@ int main(int argc, char *argv[])
 	// Create / directory
 	rootino = mkfs_ialloc(dev_id, T_DIR);
 	printf("== create / directory\n");
-	printf("root inode(inum = %u) at block address %lx\n", 
+	printf("root inode(inum = %u) at block address %lx\n",
 			rootino, mkfs_get_inode_block(rootino, ondisk_sb.inode_start));
 	assert(rootino == ROOTINO);
 
@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
 	// Create /mlfs directory
 	mlfs_dir_ino = mkfs_ialloc(dev_id, T_DIR);
 	printf("== create /mlfs directory\n");
-	printf("/mlfs inode(inum = %u) at block address %lx\n", 
+	printf("/mlfs inode(inum = %u) at block address %lx\n",
 			rootino, mkfs_get_inode_block(rootino, ondisk_sb.inode_start));
 
 	bzero(&de, sizeof(de));
@@ -376,7 +376,7 @@ int main(int argc, char *argv[])
 	// update block allocation bitmap;
 	balloc(freeblock);
 
-	if (storage_mode == NVM) 
+	if (storage_mode == NVM)
 		storage_dax.commit(dev_id);
 	else if (storage_mode == SPDK) {
 		storage_spdk.wait_io(dev_id, 0);
@@ -422,7 +422,7 @@ void write_inode(uint32_t inum, struct dinode *ip)
 	dip = ((struct dinode*)buf) + (inum % IPB);
 	*dip = *ip;
 
-	dbg_printf("%s: inode %u (addr %u) type %u\n", 
+	dbg_printf("%s: inode %u (addr %u) type %u\n",
 			__func__, inum, inode_block, ip->itype);
 
 	wsect(inode_block, buf);
@@ -444,7 +444,7 @@ void read_inode(uint8_t dev_id, uint32_t inum, struct dinode *ip)
 
 void rsect(addr_t sec, uint8_t *buf)
 {
-	if (storage_mode == NVM) 
+	if (storage_mode == NVM)
 		storage_dax.read(dev_id, buf, sec, g_block_size_bytes);
 	else if (storage_mode == SPDK) {
 		storage_spdk.read(dev_id, buf, sec, g_block_size_bytes);

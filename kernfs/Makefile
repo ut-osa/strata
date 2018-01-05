@@ -37,20 +37,20 @@ INCLUDES  := $(addprefix -I, . $(LIBSPDK_DIR) $(NVML_DIR)/include $(CUCKOO_DIR) 
 
 LD_FLAGS = -lpthread -lm -L$(NVML_DIR)/nondebug/ -lpmem -lrt
 
-#MLFS_FLAGS = -DUSE_SLAB -DMLFS_INFO -DKERNFS 
-MLFS_FLAGS = -DMLFS_INFO -DKERNFS 
-#MLFS_FLAGS = -DKERNFS 
+#MLFS_FLAGS = -DUSE_SLAB -DMLFS_INFO -DKERNFS
+MLFS_FLAGS = -DMLFS_INFO -DKERNFS
+#MLFS_FLAGS = -DKERNFS
 MLFS_FLAGS += -DBALLOC
 #MLFS_FLAGS += -DDIGEST_OPT
 #MLFS_FLAGS += -DIOMERGE
-#MLFS_FLAGS += -DCONCURRENT
+MLFS_FLAGS += -DCONCURRENT
 #MLFS_FLAGS += -DFCONCURRENT
-#MLFS_FLAGS += -DUSE_SSD
+MLFS_FLAGS += -DUSE_SSD
 #MLFS_FLAGS += -DUSE_HDD
-#MLFS_FLAGS += -DMIGRATION
+MLFS_FLAGS += -DMIGRATION
 #MLFS_FLAGS += -DEXPERIMENTAL
 
-#DEBUG = -g -O0 
+#DEBUG = -g -O0
 #DEBUG = -g -Ofast
 DEBUG = -O3
 
@@ -71,7 +71,7 @@ endef
 ########
 #  Phony targets
 ########
-.PHONY: all checkdirs clean filesystem 
+.PHONY: all checkdirs clean filesystem
 
 all: $(BUILD_DIR) filesystem
 

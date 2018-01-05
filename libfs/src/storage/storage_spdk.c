@@ -20,8 +20,11 @@ int spdk_read(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t io_size)
 {
 	int ret;
 
-	if (io_size < g_block_size_bytes)
+	if (io_size < g_block_size_bytes) {
+    fprintf(stderr, "io_size = %d, g_block_size_bytes = %lu\n", io_size,
+        g_block_size_bytes);
 		panic("cannot support IO size less than 4 KB\n");
+  }
 
 ISSUE_READ:
 	ret = spdk_async_io_read((unsigned char *)buf, blockno, io_size,
@@ -32,7 +35,7 @@ ISSUE_READ:
 		goto ISSUE_READ;
 	}
 
-	if (ret == -1 && errno == EFBIG) 
+	if (ret == -1 && errno == EFBIG)
 		panic("[SPDK] total io divided by io unit is larger than the command queue\n");
 
 	mlfs_assert(ret == io_size);
@@ -56,7 +59,7 @@ ISSUE_WRITE:
 		goto ISSUE_WRITE;
 	}
 
-	if (ret == -1 && errno == EFBIG) 
+	if (ret == -1 && errno == EFBIG)
 		panic("[SPDK] total io divided by io unit is larger than the command queue\n");
 
 	mlfs_assert(ret == io_size);
@@ -75,7 +78,7 @@ int spdk_readahead(uint8_t dev, addr_t blockno, uint32_t io_size)
 	spdk_async_readahead((uint32_t)blockno, io_size);
 }
 
-int spdk_wait_io(uint8_t dev, int read) 
+int spdk_wait_io(uint8_t dev, int read)
 {
 	spdk_wait_completions(read);
 

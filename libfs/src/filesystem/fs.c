@@ -47,8 +47,8 @@ pthread_rwlock_t *dlookup_rwlock;
 pthread_rwlock_t *invalidate_rwlock;
 pthread_rwlock_t *g_fcache_rwlock;
 
-pthread_rwlock_t *shm_slab_rwlock; 
-pthread_rwlock_t *shm_lru_rwlock; 
+pthread_rwlock_t *shm_slab_rwlock;
+pthread_rwlock_t *shm_lru_rwlock;
 
 struct inode *inode_hash[g_n_devices + 1];
 struct dirent_block *dirent_hash[g_n_devices + 1];
@@ -57,7 +57,7 @@ struct dlookup_data *dlookup_hash[g_n_devices + 1];
 libfs_stat_t g_perf_stats;
 float clock_speed_mhz;
 
-static inline float tsc_to_ms(uint64_t tsc) 
+static inline float tsc_to_ms(uint64_t tsc)
 {
 	return (float)tsc / (clock_speed_mhz * 1000.0);
 }
@@ -66,7 +66,7 @@ void show_libfs_stats(void)
 {
 	printf("\n");
 	printf("----------------------- libfs statistics\n");
-	// For some reason, floating point operation causes segfault in filebench 
+	// For some reason, floating point operation causes segfault in filebench
 	// worker thread.
 	printf("wait on digest    : %.3f ms\n", tsc_to_ms(g_perf_stats.digest_wait_tsc));
 	printf("inode allocation  : %.3f ms\n", tsc_to_ms(g_perf_stats.ialloc_tsc));
@@ -121,7 +121,7 @@ void shutdown_fs(void)
 
 	enable_perf_stats = _enable_perf_stats;
 
-	if (enable_perf_stats) 
+	if (enable_perf_stats)
 		show_libfs_stats();
 
 	/*
@@ -138,17 +138,17 @@ void shutdown_fs(void)
 }
 
 #ifdef USE_SLAB
-void mlfs_slab_init(uint64_t pool_size) 
+void mlfs_slab_init(uint64_t pool_size)
 {
 	uint8_t *pool_space;
 
 	// MAP_SHARED is used to share memory in case of fork.
-	pool_space = (uint8_t *)mmap(0, pool_size, PROT_READ|PROT_WRITE, 
+	pool_space = (uint8_t *)mmap(0, pool_size, PROT_READ|PROT_WRITE,
 			MAP_SHARED|MAP_ANONYMOUS|MAP_POPULATE, -1, 0);
 
 	mlfs_assert(pool_space);
 
-	if (madvise(pool_space, pool_size, MADV_HUGEPAGE) < 0) 
+	if (madvise(pool_space, pool_size, MADV_HUGEPAGE) < 0)
 		panic("cannot do madvise for huge page\n");
 
 	mlfs_slab_pool = (ncx_slab_pool_t *)pool_space;
@@ -172,13 +172,13 @@ void shared_slab_init(uint8_t _shm_slab_index)
 	/* TODO: make the following statment work */
 	/* shared memory is used for 2 slab regions.
 	 * At the beginning, The first region is used for allocating lru list.
-	 * After libfs makes a digest request or lru update request, libfs must free 
-	 * a current lru list and start build new one. Instead of iterating lru list, 
+	 * After libfs makes a digest request or lru update request, libfs must free
+	 * a current lru list and start build new one. Instead of iterating lru list,
 	 * Libfs reintialize slab to the second region and initialize head of lru.
-	 * This is because kernel FS might be still absorbing the LRU list 
-	 * in the first region.(kernel FS sends ack of digest and starts absoring 
+	 * This is because kernel FS might be still absorbing the LRU list
+	 * in the first region.(kernel FS sends ack of digest and starts absoring
 	 * the LRU list to reduce digest wait time.)
-	 * Likewise, the second region is toggle to the first region 
+	 * Likewise, the second region is toggle to the first region
 	 * when it needs to build a new list.
 	 */
 	mlfs_slab_pool_shared = (ncx_slab_pool_t *)(shm_base + 4096);
@@ -193,16 +193,16 @@ void shared_slab_init(uint8_t _shm_slab_index)
 static void shared_memory_init(void)
 {
 	shm_fd = shm_open(SHM_NAME, O_RDWR, 0666);
-	if (shm_fd == -1) 
+	if (shm_fd == -1)
 		panic("cannot open shared memory\n");
 
 	// the first 4096 is reserved for lru_head array.
-	shm_base = (uint8_t *)mmap(SHM_START_ADDR, 
-			SHM_SIZE + 4096, 
-			PROT_READ | PROT_WRITE, 
-			MAP_SHARED | MAP_FIXED, 
+	shm_base = (uint8_t *)mmap(SHM_START_ADDR,
+			SHM_SIZE + 4096,
+			PROT_READ | PROT_WRITE,
+			MAP_SHARED | MAP_FIXED,
 			shm_fd, 0);
-	if (shm_base == MAP_FAILED) 
+	if (shm_base == MAP_FAILED)
 		panic("cannot map shared memory\n");
 
 	shm_slab_index = 0;
@@ -218,7 +218,7 @@ static void shared_memory_init(void)
 static void cache_init(void)
 {
 	int i;
-	
+
 	for (i = 1; i < g_n_devices + 1; i++) {
 		inode_hash[i] = NULL;
 		dirent_hash[i] = NULL;
@@ -277,18 +277,20 @@ void init_fs(void)
 			dev_id = 4;
 
 #ifdef USE_SLAB
-		mlfs_slab_init(memsize_gb << 30); 
+		mlfs_slab_init(memsize_gb << 30);
 #endif
 		g_ssd_dev = 2;
 		g_hdd_dev = 3;
+    // iangneal: fix me
 		g_log_dev = dev_id;
+		//g_log_dev = g_ssd_dev;
 
 		// This is allocated from slab, which is shared
 		// between parent and child processes.
 		disk_sb = (struct disk_superblock *)mlfs_zalloc(
 				sizeof(struct disk_superblock) * (g_n_devices + 1));
 
-		for (i = 0; i < g_n_devices + 1; i++) 
+		for (i = 0; i < g_n_devices + 1; i++)
 			sb[i] = (struct super_block *)mlfs_zalloc(sizeof(struct super_block));
 
 		device_init();
@@ -314,7 +316,7 @@ void init_fs(void)
 
 		init_log(g_log_dev);
 
-		// read root inode in NVM 
+		// read root inode in NVM
 		read_root_inode(g_root_dev);
 
 		mlfs_info("LibFS is initialized with id %d\n", g_log_dev);
@@ -323,8 +325,8 @@ void init_fs(void)
 
 		perf_profile = getenv("MLFS_PROFILE");
 
-		if (perf_profile) 
-			enable_perf_stats = 1;		
+		if (perf_profile)
+			enable_perf_stats = 1;
 		else
 			enable_perf_stats = 0;
 
@@ -361,11 +363,11 @@ void read_superblock(uint8_t dev)
 	mlfs_debug("[dev %d] superblock: size %u nblocks %u ninodes %u "
 			"inodestart %lx bmap start %lx datablock_start %lx\n",
 			dev,
-			disk_sb[dev].size, 
-			disk_sb[dev].ndatablocks, 
+			disk_sb[dev].size,
+			disk_sb[dev].ndatablocks,
 			disk_sb[dev].ninodes,
-			disk_sb[dev].inode_start, 
-			disk_sb[dev].bmap_start, 
+			disk_sb[dev].inode_start,
+			disk_sb[dev].bmap_start,
 			disk_sb[dev].datablock_start);
 
 	sb[dev]->ondisk = &disk_sb[dev];
@@ -437,7 +439,7 @@ int read_ondisk_inode(uint8_t dev, uint32_t inum, struct dinode *dip)
 	return 0;
 }
 
-int sync_inode_ext_tree(uint8_t dev, struct inode *inode) 
+int sync_inode_ext_tree(uint8_t dev, struct inode *inode)
 {
 	//if (inode->flags & I_RESYNC) {
 		struct buffer_head *bh;
@@ -456,20 +458,20 @@ int sync_inode_ext_tree(uint8_t dev, struct inode *inode)
 		memmove(inode->l3.addrs, dinode.l3_addrs, sizeof(addr_t) * (NDIRECT + 1));
 #endif
 		pthread_mutex_unlock(&inode->i_mutex);
-		
+
 		/*
 		if (inode->itype == T_DIR)
 			mlfs_info("resync inode (DIR) %u is done\n", inode->inum);
-		else 
+		else
 			mlfs_info("resync inode %u is done\n", inode->inum);
 		*/
 	//}
-	
+
 	inode->flags &= ~I_RESYNC;
 	return 0;
 }
 
-// Allocate "in-memory" inode. 
+// Allocate "in-memory" inode.
 // on-disk inode is created by icreate
 struct inode* ialloc(uint8_t dev, uint32_t inum, struct dinode *dip)
 {
@@ -478,16 +480,16 @@ struct inode* ialloc(uint8_t dev, uint32_t inum, struct dinode *dip)
 	pthread_rwlockattr_t rwlattr;
 
 	mlfs_assert(dev == g_root_dev);
-	
+
 	ip = icache_find(dev, inum);
-	if (!ip) 
+	if (!ip)
 		ip = icache_alloc_add(dev, inum);
 
 	ip->_dinode = (struct dinode *)ip;
 
 	if (ip->flags & I_DELETING) {
-		// There is the case where unlink in the update log is not yet digested. 
-		// Then, ondisk inode does contain a stale information. 
+		// There is the case where unlink in the update log is not yet digested.
+		// Then, ondisk inode does contain a stale information.
 		// So, skip syncing with ondisk inode.
 		memset(ip->_dinode, 0, sizeof(struct dinode));
 		ip->dev = dev;
@@ -518,9 +520,9 @@ struct inode* ialloc(uint8_t dev, uint32_t inum, struct dinode *dip)
 
 	ip->de_cache = NULL;
 	pthread_spin_init(&ip->de_cache_spinlock, PTHREAD_PROCESS_SHARED);
-	
+
 	INIT_LIST_HEAD(&ip->i_slru_head);
-	
+
 	pthread_mutex_init(&ip->i_mutex, NULL);
 
 	bitmap_set(sb[dev]->s_inode_bitmap, inum, 1);
@@ -540,10 +542,10 @@ struct inode* icreate(uint8_t dev, uint8_t type)
 
 	// FIXME: hard coded. used for testing multiple applications.
 	if (g_log_dev == 4)
-		inum = find_next_zero_bit(sb[dev]->s_inode_bitmap, 
+		inum = find_next_zero_bit(sb[dev]->s_inode_bitmap,
 				sb[dev]->ondisk->ninodes, 1);
 	else
-		inum = find_next_zero_bit(sb[dev]->s_inode_bitmap, 
+		inum = find_next_zero_bit(sb[dev]->s_inode_bitmap,
 				sb[dev]->ondisk->ninodes, NINODES/2);
 
 	read_ondisk_inode(dev, inum, &dip);
@@ -561,7 +563,7 @@ struct inode* icreate(uint8_t dev, uint8_t type)
 
 /* Inode (in-memory) cannot be freed at this point.
  * If the inode is freed, libfs will read on-disk inode from
- * read-only area. This cause a problem since the on-disk deletion 
+ * read-only area. This cause a problem since the on-disk deletion
  * is not applied yet in kernfs (before digest).
  * idealloc() marks the inode as deleted (I_DELETING). The inode is
  * removed from icache when digesting the inode.
@@ -575,8 +577,8 @@ int idealloc(struct inode *inode)
 
 	mlfs_assert(inode->i_ref < 2);
 
-	if (inode->i_ref == 1 && 
-			(inode->flags & I_VALID) && 
+	if (inode->i_ref == 1 &&
+			(inode->flags & I_VALID) &&
 			inode->nlink == 0) {
 		if (inode->flags & I_BUSY)
 			panic("Inode must not be busy!");
@@ -608,7 +610,7 @@ int idealloc(struct inode *inode)
 	mlfs_debug("dealloc inum %u\n", inode->inum);
 
 #if 0 // TODO: do this in parallel by assigning a background thread.
-	list_for_each_entry_safe(l, tmp, &inode->i_slru_head, list) { 
+	list_for_each_entry_safe(l, tmp, &inode->i_slru_head, list) {
 		HASH_DEL(lru_hash_head, l);
 		list_del(&l->list);
 		mlfs_free_shared(l);
@@ -630,9 +632,9 @@ void iupdate(struct inode *ip)
 		panic("_dinode pointer is incorrect\n");
 
 	mlfs_get_time(&ip->mtime);
-	ip->atime = ip->mtime; 
+	ip->atime = ip->mtime;
 
-	add_to_loghdr(L_TYPE_INODE_UPDATE, ip, 0, 
+	add_to_loghdr(L_TYPE_INODE_UPDATE, ip, 0,
 			sizeof(struct dinode), NULL, 0);
 }
 
@@ -685,14 +687,14 @@ void iunlock(struct inode *ip)
 	ip->flags &= ~I_BUSY;
 }
 
-/* iput does not deallocate inode. it just drops reference count. 
- * An inode is explicitly deallocated by ideallc() 
+/* iput does not deallocate inode. it just drops reference count.
+ * An inode is explicitly deallocated by ideallc()
  */
 void iput(struct inode *ip)
 {
 	pthread_mutex_lock(&ip->i_mutex);
 
-	mlfs_muffled("iput num %u ref %u nlink %u\n", 
+	mlfs_muffled("iput num %u ref %u nlink %u\n",
 			ip->inum, ip->ref, ip->nlink);
 
 	ip->i_ref--;
@@ -710,7 +712,7 @@ void iunlockput(struct inode *ip)
 /* Get block addresses from extent trees.
  * return = 0, if all requested offsets are found.
  * return = -EAGAIN, if not all blocks are found.
- * 
+ *
  */
 int bmap(struct inode *ip, struct bmap_request *bmap_req)
 {
@@ -724,7 +726,7 @@ int bmap(struct inode *ip, struct bmap_request *bmap_req)
 		bmap_req->dev = ip->dev;
 
 		return 0;
-	}  
+	}
 	/*
 	if (ip->itype == T_DIR) {
 		handle.dev = g_root_dev;
@@ -741,7 +743,7 @@ int bmap(struct inode *ip, struct bmap_request *bmap_req)
 			bmap_req->blk_count_found = 0;
 
 		return 0;
-	} 
+	}
 	*/
 	else if (ip->itype == T_FILE) {
 		struct mlfs_map_blocks map;
@@ -764,15 +766,15 @@ int bmap(struct inode *ip, struct bmap_request *bmap_req)
 			bmap_req->block_no = map.m_pblk;
 
 			if (ret == bmap_req->blk_count) {
-				mlfs_debug("[dev %d] Get all offset %lx: blockno %lx from NVM\n", 
+				mlfs_debug("[dev %d] Get all offset %lx: blockno %lx from NVM\n",
 						g_root_dev, offset, map.m_pblk);
 				return 0;
 			} else {
-				mlfs_debug("[dev %d] Get partial offset %lx: blockno %lx from NVM\n", 
+				mlfs_debug("[dev %d] Get partial offset %lx: blockno %lx from NVM\n",
 						g_root_dev, offset, map.m_pblk);
 				return -EAGAIN;
 			}
-		} 
+		}
 
 		// L2 search
 #ifdef USE_SSD
@@ -818,14 +820,14 @@ int bmap(struct inode *ip, struct bmap_request *bmap_req)
 			bmap_req->dev = g_ssd_dev;
 			bmap_req->block_no = map.m_pblk;
 
-			mlfs_debug("[dev %d] Get offset %lu: blockno %lu from SSD\n", 
+			mlfs_debug("[dev %d] Get offset %lu: blockno %lu from SSD\n",
 					g_ssd_dev, offset, map.m_pblk);
 
-			if (ret != bmap_req->blk_count) 
+			if (ret != bmap_req->blk_count)
 				return -EAGAIN;
 			else
 				return 0;
-		} 
+		}
 #endif
 		// L3 search
 #ifdef USE_HDD
@@ -870,16 +872,16 @@ L3_search:
 			bmap_req->dev = l3_ip->dev;
 			bmap_req->block_no = map.m_pblk;
 
-			mlfs_debug("[dev %d] Get offset %lx: blockno %lx from SSD\n", 
+			mlfs_debug("[dev %d] Get offset %lx: blockno %lx from SSD\n",
 					g_ssd_dev, offset, map.m_pblk);
 
-			if (ret != bmap_req->blk_count) 
+			if (ret != bmap_req->blk_count)
 				return -EAGAIN;
 			else
 				return 0;
-		} 
+		}
 #endif
-	} 
+	}
 
 	return -EIO;
 }
@@ -904,8 +906,8 @@ int itrunc(struct inode *ip, offset_t length)
 		fcache_del_all(ip);
 	} else if (length < ip->size) {
 		/* invalidate all data pointers for log block.
-		 * If libfs only takes care of zero trucate case, 
-		 * dropping entire hash table is OK. 
+		 * If libfs only takes care of zero trucate case,
+		 * dropping entire hash table is OK.
 		 * It considers non-zero truncate */
 		for (size = ip->size; size > 0; size -= g_block_size_bytes) {
 			key = (size >> g_block_size_shift);
@@ -918,7 +920,7 @@ int itrunc(struct inode *ip, offset_t length)
 				mlfs_free(fc_block);
 			}
 		}
-	} 
+	}
 
 	pthread_mutex_lock(&ip->i_mutex);
 
@@ -961,9 +963,9 @@ static void evict_read_cache(struct inode *inode, uint32_t n_entries_to_evict)
 	uint32_t i = 0;
 	struct fcache_block *_fcache_block, *tmp;
 
-	list_for_each_entry_safe_reverse(_fcache_block, tmp, 
+	list_for_each_entry_safe_reverse(_fcache_block, tmp,
 			&g_fcache_head.lru_head, l) {
-		if (i > n_entries_to_evict) 
+		if (i > n_entries_to_evict)
 			break;
 
 		if (_fcache_block->is_data_cached) {
@@ -982,8 +984,8 @@ static void evict_read_cache(struct inode *inode, uint32_t n_entries_to_evict)
 }
 
 // Note that read cache does not copying data (parameter) to _fcache_block->data.
-// Instead, _fcache_block->data points memory in data. 
-static struct fcache_block *add_to_read_cache(struct inode *inode, 
+// Instead, _fcache_block->data points memory in data.
+static struct fcache_block *add_to_read_cache(struct inode *inode,
 		offset_t off, uint8_t *data)
 {
 	struct fcache_block *_fcache_block;
@@ -991,7 +993,7 @@ static struct fcache_block *add_to_read_cache(struct inode *inode,
 	_fcache_block = fcache_find(inode, (off >> g_block_size_shift));
 
 	if (!_fcache_block) {
-		_fcache_block = fcache_alloc_add(inode, (off >> g_block_size_shift), 0); 
+		_fcache_block = fcache_alloc_add(inode, (off >> g_block_size_shift), 0);
 		g_fcache_head.n++;
 	} else {
 		mlfs_assert(_fcache_block->is_data_cached == 0);
@@ -1000,7 +1002,7 @@ static struct fcache_block *add_to_read_cache(struct inode *inode,
 	_fcache_block->is_data_cached = 1;
 	_fcache_block->data = data;
 
-	list_move(&_fcache_block->l, &g_fcache_head.lru_head); 
+	list_move(&_fcache_block->l, &g_fcache_head.lru_head);
 
 	if (g_fcache_head.n > g_max_read_cache_blocks) {
 		evict_read_cache(inode, g_fcache_head.n - g_max_read_cache_blocks);
@@ -1022,15 +1024,15 @@ int check_log_invalidation(struct fcache_block *_fcache_block)
 	pthread_rwlock_wrlock(invalidate_rwlock);
 
 	// fcache is used for log address.
-	if ((version_diff > 1) || 
-			(version_diff == 1 && 
+	if ((version_diff > 1) ||
+			(version_diff == 1 &&
 			 _fcache_block->log_addr < g_fs_log->next_avail_header)) {
-		mlfs_debug("invalidate: inum %u offset %lu -> addr %lu\n", 
+		mlfs_debug("invalidate: inum %u offset %lu -> addr %lu\n",
 				ip->inum, _off, _fcache_block->log_addr);
 		_fcache_block->log_addr = 0;
 
 		// Delete fcache_block when it is not used for read cache.
-		if (!_fcache_block->is_data_cached) 
+		if (!_fcache_block->is_data_cached)
 			ret = 1;
 		else
 			ret = 0;
@@ -1076,7 +1078,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 			mlfs_free(_fcache_block);
 			_fcache_block = NULL;
 		}
-	}	
+	}
 
 	if (_fcache_block) {
 		// read cache hit
@@ -1085,12 +1087,12 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 			list_move(&_fcache_block->l, &g_fcache_head.lru_head);
 
 			return io_size;
-		} 
+		}
 		// the update log search
 		else if (_fcache_block->log_addr) {
 			addr_t block_no = _fcache_block->log_addr;
 
-			mlfs_debug("GET from cache: blockno %lx offset %lu(0x%lx) size %lu\n", 
+			mlfs_debug("GET from cache: blockno %lx offset %lu(0x%lx) size %lu\n",
 					block_no, off, off, io_size);
 
 			bh = bh_get_sync_IO(g_fs_log->dev, block_no, BH_NO_DATA_ALLOC);
@@ -1133,7 +1135,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 
 		bh_submit_read_sync_IO(bh);
 		bh_release(bh);
-	} 
+	}
 	// SSD and HDD cache: do read caching.
 	else {
 		mlfs_assert(_fcache_block == NULL);
@@ -1203,14 +1205,14 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 
 	bitmap_set(io_bitmap, 0, bitmap_size);
 
-	memset(copy_list, 0, sizeof(struct cache_copy_list) * bitmap_size); 
+	memset(copy_list, 0, sizeof(struct cache_copy_list) * bitmap_size);
 
 	INIT_LIST_HEAD(&io_list);
 	INIT_LIST_HEAD(&io_list_log);
 
 	mlfs_assert(io_size % g_block_size_bytes == 0);
 
-	for (pos = 0, _off = off; pos < io_size; 
+	for (pos = 0, _off = off; pos < io_size;
 			pos += g_block_size_bytes, _off += g_block_size_bytes) {
 		key = (_off >> g_block_size_shift);
 
@@ -1231,7 +1233,7 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 				mlfs_free(_fcache_block);
 				_fcache_block = NULL;
 			}
-		}	
+		}
 
 		if (_fcache_block) {
 			// read cache hit
@@ -1246,14 +1248,14 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 				bitmap_clear(io_bitmap, (pos >> g_block_size_shift), 1);
 				io_to_be_done++;
 
-				mlfs_debug("read cache hit: offset %lu(0x%lx) size %u\n", 
+				mlfs_debug("read cache hit: offset %lu(0x%lx) size %u\n",
 							off, off, io_size);
-			} 
+			}
 			// the update log search
 			else if (_fcache_block->log_addr) {
 				addr_t block_no = _fcache_block->log_addr;
 
-				mlfs_debug("GET from update log: blockno %lx offset %lu(0x%lx) size %lu\n", 
+				mlfs_debug("GET from update log: blockno %lx offset %lu(0x%lx) size %lu\n",
 						block_no, off, off, io_size);
 
 				bh = bh_get_sync_IO(g_fs_log->dev, block_no, BH_NO_DATA_ALLOC);
@@ -1282,10 +1284,10 @@ do_global_search:
 	_off = off + (find_first_bit(io_bitmap, bitmap_size) << g_block_size_shift);
 	pos = find_first_bit(io_bitmap, bitmap_size) << g_block_size_shift;
 	bitmap_pos = find_first_bit(io_bitmap, bitmap_size);
-	
+
 	// global shared area search
 	bmap_req.start_offset = _off;
-	bmap_req.blk_count = 
+	bmap_req.blk_count =
 		find_next_zero_bit(io_bitmap, bitmap_size, bitmap_pos) - bitmap_pos;
 	bmap_req.dev = 0;
 	bmap_req.block_no = 0;
@@ -1305,7 +1307,7 @@ do_global_search:
 	if (ret == -EIO) {
 		if (bmap_req.blk_count_found != bmap_req.blk_count) {
 			//panic("could not found blocks in any storage layers\n");
-			mlfs_debug("inum %u - count not find block in any storage layer\n", 
+			mlfs_debug("inum %u - count not find block in any storage layer\n",
 					ip->inum);
 		}
 		goto do_io_aligned;
@@ -1320,7 +1322,7 @@ do_global_search:
 		bh->b_size = (bmap_req.blk_count_found << g_block_size_shift);
 
 		list_add_tail(&bh->b_io_list, &io_list);
-	} 
+	}
 	// SSD and HDD cache: do read caching.
 	else {
 		offset_t cur, l;
@@ -1336,14 +1338,14 @@ do_global_search:
 		 * 1. To make a large IO request to SSD. But, in this case, libfs
 		 *    must copy IO data to read cache for each 4 KB block.
 		 * 2. To make 4 KB requests for the large IO. This case does not
-		 *    need memory copy; SPDK could make read request with the 
+		 *    need memory copy; SPDK could make read request with the
 		 *    read cache block.
 		 * Currently, I implement it with option 2
 		 */
 
 		// register IO memory to read cache for each 4 KB blocks.
 		// When bh finishes IO, the IO data will be in the read cache.
-		for (cur = _off, l = 0; l < bmap_req.blk_count_found; 
+		for (cur = _off, l = 0; l < bmap_req.blk_count_found;
 				cur += g_block_size_bytes, l++) {
 			bh = bh_get_sync_IO(bmap_req.dev, bmap_req.block_no + l, BH_NO_DATA_ALLOC);
 			bh->b_data = mlfs_alloc(g_block_size_bytes);
@@ -1361,7 +1363,7 @@ do_global_search:
 	}
 
 	/* EAGAIN happens in two cases:
-	 * 1. A size of extent is smaller than bmap_req.blk_count. In this 
+	 * 1. A size of extent is smaller than bmap_req.blk_count. In this
 	 * case, subsequent bmap call starts finding blocks in next extent.
 	 * 2. A requested offset is not in the L1 tree. In this case,
 	 * subsequent bmap call starts finding blocks in other lsm tree.
@@ -1447,11 +1449,11 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	if ((offset_aligned == off) &&
 		(offset_end == ALIGN(offset_end, g_block_size_bytes))) {
 		size_aligned = io_size;
-	} 
+	}
 	// unaligned read.
 	else {
 		if ((offset_aligned == off && io_size < g_block_size_bytes) ||
-				(offset_end < offset_aligned)) { 
+				(offset_end < offset_aligned)) {
 			offset_small = off - ALIGN_FLOOR(off, g_block_size_bytes);
 			size_small = io_size;
 		} else {
@@ -1465,7 +1467,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 				size_appended = g_block_size_bytes - size_appended;
 			}
 
-			size_aligned = io_size - size_prepended - size_appended; 
+			size_aligned = io_size - size_prepended - size_appended;
 		}
 	}
 
@@ -1534,7 +1536,7 @@ int add_to_log(struct inode *ip, uint8_t *data, offset_t off, uint32_t size)
 	if (ip->itype == T_DIR) {
 		add_to_loghdr(L_TYPE_DIR, ip, off, size);
 		//dbg_check_dir(io_buf->data);
-	}  
+	}
 	*/
 
 	if (ip->itype == T_FILE) {
@@ -1548,7 +1550,7 @@ int add_to_log(struct inode *ip, uint8_t *data, offset_t off, uint32_t size)
 	} else
 		panic("unknown inode type\n");
 
-	if (size > 0 && (off + size) > ip->size) 
+	if (size > 0 && (off + size) > ip->size)
 		ip->size = off + size;
 
 	return size;

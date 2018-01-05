@@ -4,6 +4,9 @@
 #include "global/global.h"
 #include "spdk/sync.h"
 
+// iangneal: this is set in spdk/common.c
+// I feel like this is jank but I need it for the thread pool thing in kernfs.
+extern int max_io_queues;
 
 // Interface for different storage engines.
 struct storage_operations
@@ -37,7 +40,7 @@ extern "C" {
 */
 
 // device size in bytes
-static uint64_t dev_size[g_n_devices + 1] = {0, 21474836480UL, 128849018880UL, 193273528320UL, 2147483648UL};
+static uint64_t dev_size[g_n_devices + 1] = {0UL, 17179869184UL, 21474836480UL, 0UL, 2147483648UL};
 
 extern struct storage_operations storage_dax;
 extern struct storage_operations storage_spdk;
@@ -62,10 +65,10 @@ void pmem_exit(uint8_t dev);
 // pmem-dax
 uint8_t *dax_init(uint8_t dev, char *dev_path);
 int dax_read(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t io_size);
-int dax_read_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offset, 
+int dax_read_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offset,
 		uint32_t io_size);
 int dax_write(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t io_size);
-int dax_write_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offset, 
+int dax_write_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offset,
 		uint32_t io_size);
 int dax_erase(uint8_t dev, addr_t blockno, uint32_t io_size);
 int dax_commit(uint8_t dev);

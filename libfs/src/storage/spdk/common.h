@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 
 #include <rte_config.h>
 #include <rte_mempool.h>
@@ -28,7 +30,12 @@ struct ns_entry {
 	struct spdk_nvme_ctrlr	*ctrlr;
 	struct spdk_nvme_ns	*ns;
 	struct ns_entry		*next;
-	struct spdk_nvme_qpair  *qpair;
+  // (iangneal): array of qpairs, one per core.
+	struct spdk_nvme_qpair  **qpairs;
+  // (iangneal): each qpair needs a mutex -- needed for waiting on completions,
+  // as that touches every qpair.
+  pthread_mutex_t **qtexs;
+  int nqpairs;
 };
 
 typedef struct mlfs_spdk_stats
@@ -55,6 +62,18 @@ unsigned int libspdk_get_n_lbas(void);
 
 void show_spdk_stats(void);
 float spdk_get_cpu_clock_speed(void);
+long spdk_get_num_cpus(void);
+
+extern long ncpus;
+extern int max_io_queues;
+
+inline int qpair_idx(void) {
+#ifdef CONCURRENT
+  return ((int)syscall(SYS_gettid)) % max_io_queues;
+#else
+  return 0;
+#endif
+}
 
 #ifdef __cplusplus
 }

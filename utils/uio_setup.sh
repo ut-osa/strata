@@ -57,7 +57,7 @@ function configure_linux {
 	echo "1" > "/sys/bus/pci/rescan"
 
 	# Turn off ASLR for multiprocess DPDK.
-	echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
+	echo "0" | sudo tee /proc/sys/kernel/randomize_va_space
 
 	if ! mount | grep -q hugetlbfs; then
 		mkdir -p /mnt/huge
@@ -98,7 +98,7 @@ function reset_linux {
 		linux_bind_driver "$bdf" nvme
 	done
 
-	echo 2 | sudo tee /proc/sys/kernel/randomize_va_space
+	echo "2" | sudo tee /proc/sys/kernel/randomize_va_space
 
 	echo "1" > "/sys/bus/pci/rescan"
 }

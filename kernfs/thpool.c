@@ -7,7 +7,7 @@
  *//** @file thpool.h *//*
  *
  ********************************/
-
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include <unistd.h>
 #include <signal.h>
@@ -17,7 +17,10 @@
 #include <errno.h>
 #include <time.h>
 #if defined(__linux__)
+#include <unistd.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
 #endif
 
 #include "thpool.h"
@@ -341,6 +344,15 @@ static void* thread_do(struct thread* thread_p){
 		err("thread_do(): cannot handle SIGUSR1");
 	}
 
+  // iangneal: lock onto a specific core for spdk reasons.
+  cpu_set_t mask;
+  CPU_ZERO(&mask);
+  CPU_SET(syscall(SYS_gettid) % syscall(_SC_NPROCESSORS_ONLN), &mask);
+  int res = sched_setaffinity(0, sizeof(mask), &mask);
+  if (res < 0) {
+    err("Error locking onto core");
+  }
+
 	/* Mark thread as alive (initialized) */
 	pthread_mutex_lock(&thpool_p->thcount_lock);
 	thpool_p->num_threads_alive += 1;
@@ -456,11 +468,8 @@ static void jobqueue_push(jobqueue* jobqueue_p, struct job* newjob){
 
 
 /* Get first job from queue(removes it from queue)
-<<<<<<< HEAD
  *
  * Notice: Caller MUST hold a mutex
-=======
->>>>>>> da2c0fe45e43ce0937f272c8cd2704bdc0afb490
  */
 static struct job* jobqueue_pull(jobqueue* jobqueue_p){
 

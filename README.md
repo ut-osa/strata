@@ -45,44 +45,46 @@ This step requires reboot your machine after installing the new kernel.
 ##### 3. Build glibc
 
 Building glibc might not be an easy task in some machines. We provide pre-built libc binaries in "shim/glibc-build".
-If you keep failing to build glibc, I recommand to use the pre-built glibc for your testing.
+If you keep failing to build glibc, I recommend to use the pre-built glibc for your testing.
 
 ~~~
-cd shim
-make
+make -C shim
 ~~~
+
 ##### 4. Build dependent libraries (SPDK, NVML, JEMALLOC)
 ~~~
 cd libfs/lib
 git clone https://github.com/pmem/nvml
-make
+make -C nvml
 
 tar xvjf jemalloc-4.5.0.tar.bz2
 cd jemalloc-4.5.0
-./autogen
+./autogen.sh
 ./configure
+make
+cd ..
+
 make
 ~~~
 
 For SPDK build errors, please check a SPDK website (http://www.spdk.io/doc/getting_started.html)
 
 For NVML build errors, please check a NVML repository (https://github.com/pmem/nvml/)
+
 ##### 5. Build Libfs
 ~~~
-cd libfs
-make
+make -C libfs
 ~~~
+
 ##### 6. Build KernelFS
 ~~~
-cd kernfs
-make
-cd tests
-make
+make -C kernfs
+make -C kernfs/tests
 ~~~
+
 ##### 7. Build libshim
 ~~~
-cd shim/libshim
-make
+make -C shim/libshim
 ~~~
 
 ### <a name="runningstrata"></a>Running Strata ###

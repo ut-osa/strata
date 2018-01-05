@@ -47,14 +47,14 @@ LD_FLAGS = -lpthread -lm -L$(NVML_DIR)/nondebug/ -lpmem -lrt #-Wl,-fuse-ld=gold
 #MLFS_FLAGS = -DUSE_SLAB -DLIBFS -DMLFS_INFO
 #MLFS_FLAGS = -DLIBFS
 MLFS_FLAGS = -DLIBFS -DMLFS_INFO
-#MLFS_FLAGS += -DCONCURRENT
-MLFS_FLAGS += -DINVALIDATION
+MLFS_FLAGS += -DCONCURRENT
+#MLFS_FLAGS += -DINVALIDATION
 MLFS_FLAGS += -DKLIB_HASH
-#MLFS_FLAGS += -DUSE_SSD
+MLFS_FLAGS += -DUSE_SSD
 #MLFS_FLAGS += -DUSE_HDD
 #MLFS_FLAGS += -DMLFS_LOG
 
-#DEBUG = -g3 -O0 
+#DEBUG = -g3 -O0
 #DEBUG = -O0 -gdwarf-2 -g3 -rdynamic
 #DEBUG = -g -Ofast
 DEBUG = -O3
@@ -65,7 +65,7 @@ DEBUG = -O3
 vpath %.c $(SRC_DIR)
 
 define make-goal
-$1/%.o: %.c 
+$1/%.o: %.c
 	$(CC) $(INCLUDES) $(MLFS_FLAGS) $(DEBUG) -fPIC -c $$< -o $$@ -DLIBFS
 endef
 
@@ -93,15 +93,15 @@ $(BUILD_DIR):
 ########
 #build/libmlfs.a: $(OBJ)
 libmlfs: $(OBJ) spdk
-	ar cr build/libmlfs.a $(OBJ) 
-	$(CC) -shared $(DEBUG) -o build/libmlfs.so $(OBJ) $(LD_FLAGS) -DLIBFS $(MLFS_FLAGS) -L$(LIBSPDK_DIR) -lspdk -L$(JEMALLOC_DIR)/lib -Wl,-rpath=$(abspath $(JEMALLOC_DIR)/lib) -ljemalloc 
+	ar cr build/libmlfs.a $(OBJ)
+	$(CC) -shared $(DEBUG) -o build/libmlfs.so $(OBJ) $(LD_FLAGS) -DLIBFS $(MLFS_FLAGS) -L$(LIBSPDK_DIR) -lspdk -L$(JEMALLOC_DIR)/lib -Wl,-rpath=$(abspath $(JEMALLOC_DIR)/lib) -ljemalloc
 
 spdk: $(OBJ)
-	make -C src/storage/spdk/
+	make -C src/storage/spdk/ MLFS_FLAGS="$(MLFS_FLAGS)"
 
 mkfs: $(OBJ) libmlfs
 	$(CC) -o build/mkfs.o -c src/mkfs/mkfs.c $(INCLUDES) $(MLFS_FLAGS)
-	$(CC) -g -o bin/mkfs.mlfs  build/libmlfs.a $(INCLUDES) -L$(LIBSPDK_DIR) -lspdk $(LD_FLAGS) -DLIBFS -Wl,-rpath=$(abspath $(LIBSPDK_DIR)) -Wl,-rpath=$(abspath $(NVML_DIR)/nondebug) 
+	$(CC) -g -o bin/mkfs.mlfs  build/libmlfs.a $(INCLUDES) -L$(LIBSPDK_DIR) -lspdk $(LD_FLAGS) -DLIBFS -Wl,-rpath=$(abspath $(LIBSPDK_DIR)) -Wl,-rpath=$(abspath $(NVML_DIR)/nondebug)
 
 
 ########

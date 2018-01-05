@@ -14,6 +14,10 @@ uint8_t g_enable_perf_stats;
 spdk_stats_t g_spdk_perf_stats;
 float clock_speed_mhz;
 
+// global
+long ncpus;
+int max_io_queues;
+
 float spdk_get_cpu_clock_speed(void)
 {
 	FILE* fp;
@@ -36,7 +40,7 @@ float spdk_get_cpu_clock_speed(void)
 
 	/* Locate the line that starts with "cpu MHz".  */
 	match = strstr(buffer, "cpu MHz");
-	if (match == NULL) 
+	if (match == NULL)
 		return 0;
 
 	match = strstr(match, ":");
@@ -44,6 +48,10 @@ float spdk_get_cpu_clock_speed(void)
 	/* Parse the line to extrace the clock speed.  */
 	sscanf (match, ": %f", &clock_speed);
 	return clock_speed;
+}
+
+long spdk_get_num_cpus(void) {
+  return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
 unsigned int libspdk_get_n_lbas(void) {
@@ -64,17 +72,15 @@ unsigned long upper_power_of_two(unsigned int v) {
 
 void show_spdk_stats(void)
 {
-
-	printf("\n");
-	printf("----------------------- spdk statistics\n");
-	printf("memcpy   : %.3f ms\n", 
+	printf("\n----------------------- spdk statistics\n");
+	printf("memcpy   : %.3f ms\n",
 			g_spdk_perf_stats.memcpy_tsc / (clock_speed_mhz * 1000.0));
 	printf("--------------------------------------\n");
 }
 
-static void *libspdk_init_worker(void *arg) 
+static void *libspdk_init_worker(void *arg)
 {
-	int rc;
+	int rc, i;
 	struct spdk_env_opts opts;
 
 	/*
@@ -89,21 +95,57 @@ static void *libspdk_init_worker(void *arg)
 	spdk_env_init(&opts);
 
 	clock_speed_mhz = spdk_get_cpu_clock_speed();
+  ncpus = spdk_get_num_cpus();
 
 	printf("Initializing NVMe Controllers....\n");
 
 	rc = spdk_nvme_probe(NULL, NULL, probe_cb, attach_cb, NULL);
-	if (rc != 0) {
+	if (rc) {
 		fprintf(stderr, "spdk_nvme_probe() failed\n");
 		libspdk_exit();
-		return NULL;
+		return (void*)-1;
 	}
 
-	g_namespaces->qpair = spdk_nvme_ctrlr_alloc_io_qpair(g_namespaces->ctrlr, NULL, 0);
-	if (g_namespaces->qpair == NULL) {
-		printf("ERROR: init_ns_worker_ctx() failed\n");
-		return NULL;
-	}
+  // attach_cb was never called, meaning nothing was found.
+  if (!g_namespaces) {
+		fprintf(stderr, "spdk_nvme_probe() found no controllers\n");
+		libspdk_exit();
+		return (void*)-1;
+  }
+
+  // (iangneal): Limit the number of queues to one per core.
+  max_io_queues = max_io_queues > ncpus ? ncpus : max_io_queues;
+
+  // (iangneal): set up all qpairs
+  g_namespaces->nqpairs = max_io_queues;
+  g_namespaces->qpairs = mlfs_alloc(g_namespaces->nqpairs *
+                                    sizeof(*g_namespaces->qpairs));
+  g_namespaces->qtexs = mlfs_alloc(g_namespaces->nqpairs *
+                                   sizeof(*g_namespaces->qtexs));
+  if (!g_namespaces->qpairs || !g_namespaces->qtexs) {
+    fprintf(stderr, "mlfs_alloc() failed\n");
+    return (void*)-1;
+  }
+
+  for (i = 0; i < g_namespaces->nqpairs; ++i) {
+    g_namespaces->qpairs[i] = spdk_nvme_ctrlr_alloc_io_qpair(g_namespaces->ctrlr,
+                                                             NULL, 0);
+    if (g_namespaces->qpairs[i] == NULL) {
+      fprintf(stderr, "ERROR: init_ns_worker_ctx() failed\n");
+      return (void*)-1;
+    }
+
+    g_namespaces->qtexs[i] = mlfs_alloc(sizeof(*g_namespaces->qtexs[i]));
+    if (!g_namespaces->qtexs[i]) {
+      perror("mlfs_alloc() for qpair mutex");
+      return (void*)-1;
+    }
+    rc = pthread_mutex_init(g_namespaces->qtexs[i], NULL);
+    if (rc) {
+      perror("qpair mutex init");
+      return (void*)-1;
+    }
+  }
 
 	g_enable_perf_stats = 1;
 
@@ -112,21 +154,27 @@ static void *libspdk_init_worker(void *arg)
 	return NULL;
 }
 
-int libspdk_init(void) 
+int libspdk_init(void)
 {
 	pthread_t thread_id;
+  void * ret;
 
 	if (pthread_create(&thread_id, NULL, libspdk_init_worker, NULL)) {
 		perror("Fail to create worker thread");
 		exit(-1);
 	}
 
-	pthread_join(thread_id, NULL);
+	pthread_join(thread_id, &ret);
+
+  if (ret) {
+    fprintf(stderr, "libspdk_init() failed.\n");
+    return -1;
+  }
 
 	return 0;
 }
 
-void register_ns(struct spdk_nvme_ctrlr *ctrlr, struct spdk_nvme_ns *ns) 
+void register_ns(struct spdk_nvme_ctrlr *ctrlr, struct spdk_nvme_ns *ns)
 {
 	struct ns_entry *entry;
 	const struct spdk_nvme_ctrlr_data *cdata;
@@ -217,18 +265,34 @@ void attach_cb(void *cb_ctx, const struct spdk_nvme_transport_id *trid,
 	for (nsid = 1; nsid <= num_ns; nsid++) {
 		register_ns(ctrlr, spdk_nvme_ctrlr_get_ns(ctrlr, nsid));
 	}
+
+  printf("Number of IO queues on device: %d\n", opts->num_io_queues);
+
+  // iangneal: get the maximum number of IO queues supported by our device.
+  // Divided by two for kernfs/libfs even split.
+#ifdef CONCURRENT
+  max_io_queues = (opts->num_io_queues / 2);
+#else
+  max_io_queues = 1;
+#endif
 }
 
-void libspdk_exit(void) 
+void libspdk_exit(void)
 {
+  int i;
 	struct ns_entry *ns_entry = g_namespaces;
 	struct ctrlr_entry *ctrlr_entry = g_controllers;
+
 
 	while (ns_entry) {
 		struct ns_entry *next = ns_entry->next;
 
-		spdk_nvme_ctrlr_free_io_qpair(ns_entry->qpair);
+    for (i = 0; i < ns_entry->nqpairs; ++i) {
+		  spdk_nvme_ctrlr_free_io_qpair(ns_entry->qpairs[i]);
+      pthread_mutex_destroy(ns_entry->qtexs[i]);
+    }
 
+    mlfs_free(ns_entry->qpairs);
 		mlfs_free(ns_entry);
 		ns_entry = next;
 	}

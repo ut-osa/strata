@@ -78,7 +78,7 @@ typedef struct replay_node_key
  */
 typedef struct inode_replay {
 	replay_key_t key;
-	addr_t blknr; 
+	addr_t blknr;
 	mlfs_hash_t hh;
 	struct list_head list;
 	uint8_t node_type;
@@ -113,7 +113,7 @@ typedef struct file_io_vector {
 	struct list_head list;
 	offset_t offset;
 	uint32_t length;
-	addr_t blknr; 
+	addr_t blknr;
 	uint32_t n_list;
 	struct list_head iov_blk_list;
 	mlfs_hash_t hh;
@@ -177,8 +177,8 @@ void show_kernfs_stats(void)
 	printf("-- file digest  : %.3f ms\n",
 			g_perf_stats.digest_file_tsc / (clock_speed_mhz * 1000.0));
 	printf("n_digest        : %lu\n", g_perf_stats.n_digest);
-	printf("n_digest_skipped: %lu (%.1f %%)\n", 
-			g_perf_stats.n_digest_skipped, 
+	printf("n_digest_skipped: %lu (%.1f %%)\n",
+			g_perf_stats.n_digest_skipped,
 			((float)g_perf_stats.n_digest_skipped * 100.0) / (float)n_digest);
 	printf("path search    : %.3f ms\n",
 			g_perf_stats.path_search_tsc / (clock_speed_mhz * 1000.0));
@@ -189,7 +189,7 @@ void show_kernfs_stats(void)
 void show_storage_stats(void)
 {
 	printf("------------------------------ storage stats\n");
-	printf("NVM - %.2f %% used (%.2f / %.2f GB) - # of used blocks %lu\n", 
+	printf("NVM - %.2f %% used (%.2f / %.2f GB) - # of used blocks %lu\n",
 			(100.0 * (float)sb[g_root_dev]->used_blocks) /
 			(float)disk_sb[g_root_dev].ndatablocks,
 			(float)(sb[g_root_dev]->used_blocks << g_block_size_shift) / (1 << 30),
@@ -197,7 +197,7 @@ void show_storage_stats(void)
 			sb[g_root_dev]->used_blocks);
 
 #ifdef USE_SSD
-	printf("SSD - %.2f %% used (%.2f / %.2f GB) - # of used blocks %lu\n", 
+	printf("SSD - %.2f %% used (%.2f / %.2f GB) - # of used blocks %lu\n",
 			(100.0 * (float)sb[g_ssd_dev]->used_blocks) /
 			(float)disk_sb[g_ssd_dev].ndatablocks,
 			(float)(sb[g_ssd_dev]->used_blocks << g_block_size_shift) / (1 << 30),
@@ -206,7 +206,7 @@ void show_storage_stats(void)
 #endif
 
 #ifdef USE_HDD
-	printf("HDD - %.2f %% used (%.2f / %.2f GB) - # of used blocks %lu\n", 
+	printf("HDD - %.2f %% used (%.2f / %.2f GB) - # of used blocks %lu\n",
 			(100.0 * (float)sb[g_hdd_dev]->used_blocks) /
 			(float)disk_sb[g_hdd_dev].ndatablocks,
 			(float)(sb[g_hdd_dev]->used_blocks << g_block_size_shift) / (1 << 30),
@@ -225,7 +225,7 @@ loghdr_meta_t *read_log_header(uint8_t from_dev, addr_t hdr_addr)
 	loghdr_meta_t *loghdr_meta;
 
 	loghdr_meta = (loghdr_meta_t *)mlfs_zalloc(sizeof(loghdr_meta_t));
-	if (!loghdr_meta) 
+	if (!loghdr_meta)
 		panic("cannot allocate logheader\n");
 
 	INIT_LIST_HEAD(&loghdr_meta->link);
@@ -233,7 +233,7 @@ loghdr_meta_t *read_log_header(uint8_t from_dev, addr_t hdr_addr)
 	/* optimization: instead of reading log header block to kernel's memory,
 	 * buffer head points to memory address for log header block.
 	 */
-	_loghdr = (loghdr_t *)(g_bdev[from_dev]->map_base_addr + 
+	_loghdr = (loghdr_t *)(g_bdev[from_dev]->map_base_addr +
 		(hdr_addr << g_block_size_shift));
 
 	loghdr_meta->loghdr = _loghdr;
@@ -247,7 +247,7 @@ loghdr_meta_t *read_log_header(uint8_t from_dev, addr_t hdr_addr)
 
 	/*
 	for (i = 0; i < _loghdr->n; i++) {
-		mlfs_debug("types %d blocks %lx\n", 
+		mlfs_debug("types %d blocks %lx\n",
 				_loghdr->type[i], _loghdr->blocks[i]);
 	}
 	*/
@@ -256,7 +256,7 @@ loghdr_meta_t *read_log_header(uint8_t from_dev, addr_t hdr_addr)
 }
 
 // FIXME: to_dev is now used. change APIs
-int digest_inode(uint8_t from_dev, uint8_t to_dev, 
+int digest_inode(uint8_t from_dev, uint8_t to_dev,
 		uint32_t inum, addr_t blknr)
 {
 	struct buffer_head *bh;
@@ -283,7 +283,7 @@ int digest_inode(uint8_t from_dev, uint8_t to_dev,
 
 	inode = icache_find(to_dev, inum);
 
-	if (!inode) 
+	if (!inode)
 		inode = ialloc(to_dev, src_dinode->itype, inum);
 
 	mlfs_assert(inode);
@@ -325,8 +325,8 @@ int digest_inode(uint8_t from_dev, uint8_t to_dev,
 			handle_t handle;
 			handle.dev = src_dinode->dev;
 
-			ret = mlfs_ext_truncate(&handle, inode, 
-					(src_dinode->size) >> g_block_size_shift, 
+			ret = mlfs_ext_truncate(&handle, inode,
+					(src_dinode->size) >> g_block_size_shift,
 					((inode->size) >> g_block_size_shift) - 1);
 
 			mlfs_assert(!ret);
@@ -354,7 +354,7 @@ int digest_inode(uint8_t from_dev, uint8_t to_dev,
  * _dirent_inum : the inode number of directory to be digested.
  * blknr: the number of block that contatins the directory entry.
  */
-int digest_directory(uint8_t from_dev, uint8_t to_dev, int n, uint8_t type, 
+int digest_directory(uint8_t from_dev, uint8_t to_dev, int n, uint8_t type,
 		uint32_t dir_inum, uint32_t dir_size, offset_t _dirent_inum, addr_t blknr)
 {
 	struct inode *dir_inode;
@@ -398,24 +398,24 @@ int digest_directory(uint8_t from_dev, uint8_t to_dev, int n, uint8_t type,
 	dirent_inum = strtoul(strtok(NULL, "@"), NULL, 10);
 	mlfs_assert(dirent_inum == (uint32_t)_dirent_inum);
 
-	mlfs_debug("[DIR] %s, name %s (parent inum %d) inum %d\n", 
-			type == L_TYPE_DIR_ADD ? "ADD" : 
+	mlfs_debug("[DIR] %s, name %s (parent inum %d) inum %d\n",
+			type == L_TYPE_DIR_ADD ? "ADD" :
 			type == L_TYPE_DIR_DEL ? "DEL" : "RENAME",
 			name, dir_inum, dirent_inum);
 
 	dir_inode = icache_find(to_dev, dir_inum);
-	if (!dir_inode) 
+	if (!dir_inode)
 		dir_inode = ialloc(to_dev, T_DIR, dir_inum);
 
 	// Update dirent array block. Possibly, a new directory block could be allocated
 	// during directory walk (in get_dirent_block()).
-	if (type == L_TYPE_DIR_ADD) 
+	if (type == L_TYPE_DIR_ADD)
 		dir_add_entry(dir_inode, name, dirent_inum);
 	else if (type == L_TYPE_DIR_RENAME) {
 		struct inode *old_inode;
 
 		old_inode = dir_lookup(dir_inode, name, NULL);
-		
+
 		// rename to the same file name implies unlink the old file.
 		if (old_inode) {
 			dir_remove_entry(dir_inode, name, old_inode->inum);
@@ -444,7 +444,7 @@ int digest_directory(uint8_t from_dev, uint8_t to_dev, int n, uint8_t type,
 	return 0;
 }
 
-int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum, 
+int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 		offset_t offset, uint32_t length, addr_t blknr)
 {
 	int ret;
@@ -458,7 +458,7 @@ int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 	offset_t cur_offset;
 	handle_t handle = {.dev = to_dev};
 
-	mlfs_debug("[FILE] (%d->%d) inum %d offset %lu(0x%lx) length %u\n", 
+	mlfs_debug("[FILE] (%d->%d) inum %d offset %lu(0x%lx) length %u\n",
 			from_dev, to_dev, file_inum, offset, offset, length);
 
 	if (length < g_block_size_bytes)
@@ -466,7 +466,7 @@ int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 	else {
 		nr_blocks = (length >> g_block_size_shift);
 
-		if (length % g_block_size_bytes != 0) 
+		if (length % g_block_size_bytes != 0)
 			nr_blocks++;
 	}
 
@@ -509,7 +509,7 @@ int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 	cur_offset = offset;
 	offset_in_block = offset % g_block_size_bytes;
 
-	// case 1. a single block writing: small size (< 4KB) 
+	// case 1. a single block writing: small size (< 4KB)
 	// or a heading block of unaligned starting offset.
 	if ((length < g_block_size_bytes) || offset_in_block != 0) {
 		int _len = _min(length, (uint32_t)g_block_size_bytes - offset_in_block);
@@ -519,12 +519,12 @@ int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 		map.m_len = 1;
 		map.m_flags = 0;
 
-		ret = mlfs_ext_get_blocks(&handle, file_inode, &map, 
+		ret = mlfs_ext_get_blocks(&handle, file_inode, &map,
 				MLFS_GET_BLOCKS_CREATE);
 
 		mlfs_assert(ret == 1);
 
-		bh_data = bh_get_sync_IO(to_dev, map.m_pblk, BH_NO_DATA_ALLOC); 
+		bh_data = bh_get_sync_IO(to_dev, map.m_pblk, BH_NO_DATA_ALLOC);
 
 		mlfs_assert(bh_data);
 
@@ -550,8 +550,8 @@ int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 
 		bh_release(bh_data);
 
-		mlfs_debug("inum %d, offset %lu len %u (dev %d:%lu) -> (dev %d:%lu)\n", 
-				file_inode->inum, cur_offset, _len, 
+		mlfs_debug("inum %d, offset %lu len %u (dev %d:%lu) -> (dev %d:%lu)\n",
+				file_inode->inum, cur_offset, _len,
 				from_dev, blknr, to_dev, map.m_pblk);
 
 		nr_digested_blocks++;
@@ -577,10 +577,10 @@ int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 		if (to_dev == g_ssd_dev || to_dev == g_hdd_dev) {
 			//make kernelFS do log-structured update.
 			//map.m_flags |= MLFS_MAP_LOG_ALLOC;
-			nr_block_get = mlfs_ext_get_blocks(&handle, file_inode, &map, 
+			nr_block_get = mlfs_ext_get_blocks(&handle, file_inode, &map,
 					MLFS_GET_BLOCKS_CREATE_DATA);
 		} else {
-			nr_block_get = mlfs_ext_get_blocks(&handle, file_inode, &map, 
+			nr_block_get = mlfs_ext_get_blocks(&handle, file_inode, &map,
 					MLFS_GET_BLOCKS_CREATE_DATA);
 		}
 
@@ -599,7 +599,7 @@ int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 		bh_data->b_offset = 0;
 
 #ifdef MIGRATION
-		for (i = 0; i < nr_block_get; i++) { 
+		for (i = 0; i < nr_block_get; i++) {
 			lru_key_t k = {
 				.dev = to_dev,
 				.block = map.m_pblk + i,
@@ -634,8 +634,8 @@ int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 			bh_release(bh);
 		}
 
-		mlfs_debug("inum %d, offset %lu len %u (dev %d:%lu) -> (dev %d:%lu)\n", 
-				file_inode->inum, cur_offset, bh_data->b_size, 
+		mlfs_debug("inum %d, offset %lu len %u (dev %d:%lu) -> (dev %d:%lu)\n",
+				file_inode->inum, cur_offset, bh_data->b_size,
 				from_dev, blknr, to_dev, map.m_pblk);
 
 		cur_offset += nr_block_get * g_block_size_bytes;
@@ -652,7 +652,7 @@ int digest_file(uint8_t from_dev, uint8_t to_dev, uint32_t file_inum,
 
 //FIXME: this function is not synchronized with up-to-date
 //changes. Refer digest_file to update this function.
-int digest_file_iovec(uint8_t from_dev, uint8_t to_dev, 
+int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 		uint32_t file_inum, f_iovec_t *iovec)
 {
 	int ret;
@@ -669,7 +669,7 @@ int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 	f_blklist_t *_blk_list;
 	handle_t handle = {.dev = to_dev};
 
-	mlfs_debug("[FILE] (%d->%d) inum %d offset %lu(0x%lx) length %u\n", 
+	mlfs_debug("[FILE] (%d->%d) inum %d offset %lu(0x%lx) length %u\n",
 			from_dev, to_dev, file_inum, offset, offset, length);
 
 	if (length < g_block_size_bytes)
@@ -677,7 +677,7 @@ int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 	else {
 		nr_blocks = (length >> g_block_size_shift);
 
-		if (length % g_block_size_bytes != 0) 
+		if (length % g_block_size_bytes != 0)
 			nr_blocks++;
 	}
 
@@ -740,7 +740,7 @@ int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 
 	_blk_list = list_first_entry(&iovec->iov_blk_list, f_blklist_t, list);
 
-	// case 1. a single block writing: small size (< 4KB) 
+	// case 1. a single block writing: small size (< 4KB)
 	// or a heading block of unaligned starting offset.
 	if ((length < g_block_size_bytes) || offset_in_block != 0) {
 		int _len = _min(length, (uint32_t)g_block_size_bytes - offset_in_block);
@@ -752,7 +752,7 @@ int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 		map.m_pblk = 0;
 		map.m_len = 1;
 
-		ret = mlfs_ext_get_blocks(&handle, file_inode, &map, 
+		ret = mlfs_ext_get_blocks(&handle, file_inode, &map,
 				MLFS_GET_BLOCKS_CREATE);
 
 		mlfs_assert(ret == 1);
@@ -770,8 +770,8 @@ int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 		clear_buffer_uptodate(bh_data);
 		bh_release(bh_data);
 
-		mlfs_debug("inum %d, offset %lu (dev %d:%lx) -> (dev %d:%lx)\n", 
-				file_inode->inum, cur_offset, from_dev, 
+		mlfs_debug("inum %d, offset %lu (dev %d:%lx) -> (dev %d:%lx)\n",
+				file_inode->inum, cur_offset, from_dev,
 				blknr, to_dev, map.m_pblk);
 
 		nr_digested_blocks++;
@@ -785,7 +785,7 @@ int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 	// with setting m_lblk to the offset having a the hole to fill it.
 	while (nr_digested_blocks < nr_blocks) {
 		int nr_block_get = 0, i, j;
-		int rand_val; 
+		int rand_val;
 
 		mlfs_assert((cur_offset % g_block_size_bytes) == 0);
 
@@ -794,7 +794,7 @@ int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 		map.m_len = min(nr_blocks - nr_digested_blocks, (1 << 15));
 
 		// find block address of offset and update extent tree
-		nr_block_get = mlfs_ext_get_blocks(&handle, file_inode, &map, 
+		nr_block_get = mlfs_ext_get_blocks(&handle, file_inode, &map,
 				MLFS_GET_BLOCKS_CREATE);
 
 		mlfs_assert(map.m_pblk != 0);
@@ -804,11 +804,11 @@ int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 		nr_digested_blocks += nr_block_get;
 
 		if (_blk_list->n > nr_block_get) {
-			data = g_bdev[from_dev]->map_base_addr + 
+			data = g_bdev[from_dev]->map_base_addr +
 				(_blk_list->blknr << g_block_size_shift);
 
-			mlfs_debug("inum %d, offset %lu len %u (dev %d:%lu) -> (dev %d:%lu)\n", 
-					file_inode->inum, cur_offset, _blk_list->n << g_block_size_shift, 
+			mlfs_debug("inum %d, offset %lu len %u (dev %d:%lu) -> (dev %d:%lu)\n",
+					file_inode->inum, cur_offset, _blk_list->n << g_block_size_shift,
 					from_dev, _blk_list->blknr, to_dev, map.m_pblk);
 
 			bh_data = bh_get_sync_IO(to_dev, map.m_pblk, BH_NO_DATA_ALLOC);
@@ -832,13 +832,13 @@ int digest_file_iovec(uint8_t from_dev, uint8_t to_dev,
 			continue;
 		}
 
-		for (i = 0, j = _blk_list->n; j <= nr_block_get; 
+		for (i = 0, j = _blk_list->n; j <= nr_block_get;
 				i += _blk_list->n, j += _blk_list->n) {
-			data = g_bdev[from_dev]->map_base_addr + 
+			data = g_bdev[from_dev]->map_base_addr +
 				(_blk_list->blknr << g_block_size_shift);
 
-			mlfs_debug("inum %d, offset %lu len %u (dev %d:%lu) -> (dev %d:%lu)\n", 
-					file_inode->inum, cur_offset, _blk_list->n << g_block_size_shift, 
+			mlfs_debug("inum %d, offset %lu len %u (dev %d:%lu) -> (dev %d:%lu)\n",
+					file_inode->inum, cur_offset, _blk_list->n << g_block_size_shift,
 					from_dev, _blk_list->blknr, to_dev, map.m_pblk + i);
 
 			// update data block
@@ -892,7 +892,7 @@ int digest_unlink(uint8_t from_dev, uint8_t to_dev, uint32_t inum)
 	if (inode->itype == T_FILE) {
 		if (inode->size > 0) {
 			handle_t handle = {.dev = to_dev};
-			mlfs_lblk_t end = (inode->size) >> g_block_size_shift; 
+			mlfs_lblk_t end = (inode->size) >> g_block_size_shift;
 
 			ret = mlfs_ext_truncate(&handle, inode, 0, end == 0 ? end : end - 1);
 			mlfs_assert(!ret);
@@ -910,7 +910,7 @@ int digest_unlink(uint8_t from_dev, uint8_t to_dev, uint32_t inum)
 	inode->flags |= I_DELETING;
 	inode->size = 0;
 	inode->itype = 0;
-	
+
 	mlfs_mark_inode_dirty(inode);
 
 	return 0;
@@ -932,15 +932,15 @@ static void digest_each_log_entries(uint8_t from_dev, loghdr_meta_t *loghdr_meta
 
 		// parse log entries on types.
 		switch(loghdr->type[i]) {
-			case L_TYPE_INODE_CREATE: 
+			case L_TYPE_INODE_CREATE:
 			// ftruncate is handled by this case.
 			case L_TYPE_INODE_UPDATE: {
-				if (enable_perf_stats) 
+				if (enable_perf_stats)
 					tsc_begin = asm_rdtscp();
 
 				ret = digest_inode(from_dev,
 						g_root_dev,
-						loghdr->inode_no[i], 
+						loghdr->inode_no[i],
 						loghdr->blocks[i]);
 				mlfs_assert(!ret);
 
@@ -949,18 +949,18 @@ static void digest_each_log_entries(uint8_t from_dev, loghdr_meta_t *loghdr_meta
 						asm_rdtscp() - tsc_begin;
 				break;
 			}
-			case L_TYPE_DIR_ADD: 
-			case L_TYPE_DIR_RENAME: 
+			case L_TYPE_DIR_ADD:
+			case L_TYPE_DIR_RENAME:
 			case L_TYPE_DIR_DEL: {
-				if (enable_perf_stats) 
+				if (enable_perf_stats)
 					tsc_begin = asm_rdtscp();
 
-				ret = digest_directory(from_dev, 
+				ret = digest_directory(from_dev,
 						g_root_dev,
 						i,
 						loghdr->type[i],
-						loghdr->inode_no[i], 
-						loghdr->length[i], 
+						loghdr->inode_no[i],
+						loghdr->length[i],
 						loghdr->data[i],
 						loghdr_meta->hdr_blkno);
 				mlfs_assert(!ret);
@@ -975,16 +975,16 @@ static void digest_each_log_entries(uint8_t from_dev, loghdr_meta_t *loghdr_meta
 				int rand_val;
 				lru_key_t k;
 
-				if (enable_perf_stats) 
+				if (enable_perf_stats)
 					tsc_begin = asm_rdtscp();
 #ifdef USE_SSD
 				// for NVM bypassing test
 				//dest_dev = g_ssd_dev;
 #endif
-				ret = digest_file(from_dev, 
+				ret = digest_file(from_dev,
 						dest_dev,
-						loghdr->inode_no[i], 
-						loghdr->data[i], 
+						loghdr->inode_no[i],
+						loghdr->data[i],
 						loghdr->length[i],
 						loghdr->blocks[i]);
 				mlfs_assert(!ret);
@@ -995,7 +995,7 @@ static void digest_each_log_entries(uint8_t from_dev, loghdr_meta_t *loghdr_meta
 				break;
 			}
 			case L_TYPE_UNLINK: {
-				if (enable_perf_stats) 
+				if (enable_perf_stats)
 					tsc_begin = asm_rdtscp();
 
 				ret = digest_unlink(from_dev,
@@ -1003,7 +1003,7 @@ static void digest_each_log_entries(uint8_t from_dev, loghdr_meta_t *loghdr_meta
 						loghdr->inode_no[i]);
 				mlfs_assert(!ret);
 
-				if (enable_perf_stats) 
+				if (enable_perf_stats)
 					g_perf_stats.digest_inode_tsc +=
 						asm_rdtscp() - tsc_begin;
 				break;
@@ -1017,7 +1017,7 @@ static void digest_each_log_entries(uint8_t from_dev, loghdr_meta_t *loghdr_meta
 	}
 }
 
-static void digest_replay_and_optimize(uint8_t from_dev, 
+static void digest_replay_and_optimize(uint8_t from_dev,
 		loghdr_meta_t *loghdr_meta, struct replay_list *replay_list)
 {
 	int i, ret;
@@ -1036,7 +1036,7 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 
 				search.key.inum = loghdr->inode_no[i];
 
-				if (loghdr->type[i] == L_TYPE_INODE_CREATE) 
+				if (loghdr->type[i] == L_TYPE_INODE_CREATE)
 						inode_version_table[search.key.inum]++;
 				search.key.ver = inode_version_table[search.key.inum];
 
@@ -1049,9 +1049,9 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 					list_add_tail(&item->list, &replay_list->head);
 
 					// tag the inode coalecing starts from inode creation.
-					// This is crucial information to decide whether 
+					// This is crucial information to decide whether
 					// unlink can skip or not.
-					if (loghdr->type[i] == L_TYPE_INODE_CREATE) 
+					if (loghdr->type[i] == L_TYPE_INODE_CREATE)
 						item->create = 1;
 					else
 						item->create = 0;
@@ -1067,8 +1067,8 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 					g_perf_stats.n_digest++;
 				break;
 			}
-			case L_TYPE_DIR_DEL: 
-			case L_TYPE_DIR_RENAME: 
+			case L_TYPE_DIR_DEL:
+			case L_TYPE_DIR_RENAME:
 			case L_TYPE_DIR_ADD: {
 				d_replay_t search, *item;
 				// search must be zeroed at the beginning.
@@ -1082,14 +1082,14 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 				if (!item) {
 					item = (d_replay_t *)mlfs_zalloc(sizeof(d_replay_t));
 					item->key = search.key;
-					HASH_ADD(hh, replay_list->d_digest_hash, key, 
+					HASH_ADD(hh, replay_list->d_digest_hash, key,
 							sizeof(d_replay_key_t), item);
 					item->node_type = NTYPE_D;
 					list_add_tail(&item->list, &replay_list->head);
 					mlfs_debug("[ DIR ] inum %u (ver %u) - %s\n",
-							item->key.inum, 
+							item->key.inum,
 							item->key.ver,
-							loghdr->type[i] == L_TYPE_DIR_ADD ? "ADD" : 
+							loghdr->type[i] == L_TYPE_DIR_ADD ? "ADD" :
 							loghdr->type[i] == L_TYPE_DIR_DEL ? "DEL" :
 							"RENAME");
 				}
@@ -1132,18 +1132,18 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 #ifdef IOMERGE
 				// IO data is merged if the same offset found.
 				// Reduce amount IO when IO data has locality such as Zipf dist.
-				// FIXME: currently iomerge works correctly when IO size is 
+				// FIXME: currently iomerge works correctly when IO size is
 				// 4 KB and aligned.
 				iovec_key = ALIGN_FLOOR(loghdr->data[i], g_block_size_bytes);
 
 				if (loghdr->data[i] % g_block_size_bytes !=0 ||
-						loghdr->length[i] != g_block_size_bytes) 
+						loghdr->length[i] != g_block_size_bytes)
 					panic("IO merge is not support current IO pattern\n");
 
-				HASH_FIND(hh, item->iovec_hash, 
+				HASH_FIND(hh, item->iovec_hash,
 						&iovec_key, sizeof(offset_t), f_iovec);
 
-				if (f_iovec && 
+				if (f_iovec &&
 						(f_iovec->length == loghdr->length[i])) {
 					f_iovec->offset = iovec_key;
 					f_iovec->blknr = loghdr->blocks[i];
@@ -1194,7 +1194,7 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 						mlfs_debug("block is merged %u\n", _blk_list->blknr);
 						list_add_tail(&_blk_list->list, &f_iovec->iov_blk_list);
 					} else {
-						mlfs_debug("new f_iovec %lu\n",  loghdr->data[i]); 
+						mlfs_debug("new f_iovec %lu\n",  loghdr->data[i]);
 						// cannot coalesce io_vector. allocate new one.
 						f_iovec = (f_iovec_t *)mlfs_zalloc(sizeof(f_iovec_t));
 						f_iovec->length = loghdr->length[i];
@@ -1254,7 +1254,7 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 						sizeof(replay_key_t), i_item);
 
 				if (i_item && i_item->create) {
-					mlfs_debug("[INODE] inum %u (ver %u) --> SKIP\n", 
+					mlfs_debug("[INODE] inum %u (ver %u) --> SKIP\n",
 							i_item->key.inum, i_item->key.ver);
 					// the unlink can skip and erase related i_items
 					HASH_DEL(replay_list->i_digest_hash, i_item);
@@ -1270,7 +1270,7 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 					HASH_ADD(hh, replay_list->u_digest_hash, key,
 							sizeof(replay_key_t), u_item);
 					list_add_tail(&u_item->list, &replay_list->head);
-					mlfs_debug("[ULINK] inum %u (ver %u)\n", 
+					mlfs_debug("[ULINK] inum %u (ver %u)\n",
 							u_item->key.inum, u_item->key.ver);
 					if (enable_perf_stats)
 						g_perf_stats.n_digest++;
@@ -1280,13 +1280,13 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 				HASH_FIND(hh, replay_list->u_digest_hash, &key,
 						sizeof(replay_key_t), u_item);
 				if (u_item) {
-					// previous unlink can skip. 
-					mlfs_debug("[ULINK] inum %u (ver %u) --> SKIP\n", 
+					// previous unlink can skip.
+					mlfs_debug("[ULINK] inum %u (ver %u) --> SKIP\n",
 							u_item->key.inum, u_item->key.ver);
 					HASH_DEL(replay_list->u_digest_hash, u_item);
 					list_del(&u_item->list);
 					mlfs_free(u_item);
-				} 
+				}
 #endif
 
 				// check directory digest info to skip.
@@ -1296,9 +1296,9 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 
 				HASH_FIND(hh, replay_list->d_digest_hash, &d_search.key,
 						sizeof(d_replay_key_t), d_item);
-				
+
 				if (d_item) {
-					mlfs_debug("[ DIR ] inum %u (ver %u) - ADD --> SKIP\n", 
+					mlfs_debug("[ DIR ] inum %u (ver %u) - ADD --> SKIP\n",
 							d_item->key.inum, d_item->key.ver);
 					HASH_DEL(replay_list->d_digest_hash, d_item);
 					list_del(&d_item->list);
@@ -1313,9 +1313,9 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 
 				HASH_FIND(hh, replay_list->d_digest_hash, &d_search.key,
 						sizeof(d_replay_key_t), d_item);
-				
+
 				if (d_item) {
-					mlfs_debug("[ DIR ] inum %u (ver %u) - RENAME --> SKIP\n", 
+					mlfs_debug("[ DIR ] inum %u (ver %u) - RENAME --> SKIP\n",
 							d_item->key.inum, d_item->key.ver);
 					HASH_DEL(replay_list->d_digest_hash, d_item);
 					list_del(&d_item->list);
@@ -1332,14 +1332,14 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 
 				HASH_FIND(hh, replay_list->d_digest_hash, &d_search.key,
 						sizeof(d_replay_key_t), d_item);
-				
+
 				if (d_item && d_item->key.ver != 0 ) {
-					mlfs_debug("[ DIR ] inum %u (ver %u) - DEL --> SKIP\n", 
+					mlfs_debug("[ DIR ] inum %u (ver %u) - DEL --> SKIP\n",
 							d_item->key.inum, d_item->key.ver);
 					HASH_DEL(replay_list->d_digest_hash, d_item);
 					list_del(&d_item->list);
 					mlfs_free(d_item);
-					
+
 					if (enable_perf_stats)
 						g_perf_stats.n_digest_skipped++;
 				}
@@ -1352,11 +1352,11 @@ static void digest_replay_and_optimize(uint8_t from_dev,
 						sizeof(replay_key_t), f_item);
 
 				if (f_item) {
-					list_for_each_entry_safe(f_iovec, tmp, 
+					list_for_each_entry_safe(f_iovec, tmp,
 							&f_item->iovec_list, list) {
 						list_del(&f_iovec->list);
 						mlfs_free(f_iovec);
-						
+
 						if (enable_perf_stats)
 							g_perf_stats.n_digest_skipped++;
 					}
@@ -1388,10 +1388,10 @@ static void file_digest_worker(void *arg)
 
 	f_item = _arg->f_item;
 
-	list_for_each_entry_safe(f_iovec, iovec_tmp, 
+	list_for_each_entry_safe(f_iovec, iovec_tmp,
 			&f_item->iovec_list, list) {
-		digest_file(_arg->from_dev, _arg->to_dev, 
-				f_item->key.inum, f_iovec->offset, 
+		digest_file(_arg->from_dev, _arg->to_dev,
+				f_item->key.inum, f_iovec->offset,
 				f_iovec->length, f_iovec->blknr);
 		mlfs_free(f_iovec);
 	}
@@ -1417,7 +1417,7 @@ static void digest_log_from_replay_list(uint8_t from_dev, struct replay_list *re
 				i_replay_t *i_item;
 				i_item = (i_replay_t *)container_of(l, i_replay_t, list);
 
-				if (enable_perf_stats) 
+				if (enable_perf_stats)
 					tsc_begin = asm_rdtscp();
 
 				digest_inode(from_dev, g_root_dev, i_item->key.inum, i_item->blknr);
@@ -1434,11 +1434,11 @@ static void digest_log_from_replay_list(uint8_t from_dev, struct replay_list *re
 				d_replay_t *d_item;
 				d_item = (d_replay_t *)container_of(l, d_replay_t, list);
 
-				if (enable_perf_stats) 
+				if (enable_perf_stats)
 					tsc_begin = asm_rdtscp();
 
-				digest_directory(from_dev, g_root_dev, d_item->n, 
-						d_item->key.type, d_item->dir_inum, d_item->dir_size, 
+				digest_directory(from_dev, g_root_dev, d_item->n,
+						d_item->key.type, d_item->dir_inum, d_item->dir_size,
 						d_item->key.inum, d_item->blknr);
 
 				HASH_DEL(replay_list->d_digest_hash, d_item);
@@ -1455,7 +1455,7 @@ static void digest_log_from_replay_list(uint8_t from_dev, struct replay_list *re
 				f_item = (f_replay_t *)container_of(l, f_replay_t, list);
 				lru_key_t k;
 
-				if (enable_perf_stats) 
+				if (enable_perf_stats)
 					tsc_begin = asm_rdtscp();
 
 #ifdef FCONCURRENT
@@ -1482,16 +1482,16 @@ static void digest_log_from_replay_list(uint8_t from_dev, struct replay_list *re
 					mlfs_free(f_item);
 				}
 #else
-				list_for_each_entry_safe(f_iovec, iovec_tmp, 
+				list_for_each_entry_safe(f_iovec, iovec_tmp,
 						&f_item->iovec_list, list) {
 
 #ifndef EXPERIMENTAL
-					digest_file(from_dev, dest_dev, 
-							f_item->key.inum, f_iovec->offset, 
+					digest_file(from_dev, dest_dev,
+							f_item->key.inum, f_iovec->offset,
 							f_iovec->length, f_iovec->blknr);
 					mlfs_free(f_iovec);
 #else
-					digest_file_iovec(from_dev, dest_dev, 
+					digest_file_iovec(from_dev, dest_dev,
 							f_item->key.inum, f_iovec);
 #endif //EXPERIMETNAL
 					if (dest_dev == g_ssd_dev)
@@ -1512,7 +1512,7 @@ static void digest_log_from_replay_list(uint8_t from_dev, struct replay_list *re
 				u_replay_t *u_item;
 				u_item = (u_replay_t *)container_of(l, u_replay_t, list);
 
-				if (enable_perf_stats) 
+				if (enable_perf_stats)
 					tsc_begin = asm_rdtscp();
 
 				digest_unlink(from_dev, g_root_dev, u_item->key.inum);
@@ -1563,7 +1563,7 @@ static void digest_log_from_replay_list(uint8_t from_dev, struct replay_list *re
 #endif
 }
 
-static int persist_dirty_objects_nvm(void) 
+static int persist_dirty_objects_nvm(void)
 {
 	struct rb_node *node;
 
@@ -1571,7 +1571,7 @@ static int persist_dirty_objects_nvm(void)
 	sync_all_buffers(g_bdev[g_root_dev]);
 
 	// save dirty inodes
-	for (node = rb_first(&sb[g_root_dev]->s_dirty_root); 
+	for (node = rb_first(&sb[g_root_dev]->s_dirty_root);
 			node; node = rb_next(node)) {
 		struct inode *ip = rb_entry(node, struct inode, i_rb_node);
 		mlfs_debug("[dev %d] write dirty inode %d size %lu\n",
@@ -1579,17 +1579,17 @@ static int persist_dirty_objects_nvm(void)
 		rb_erase(&ip->i_rb_node, &get_inode_sb(g_root_dev, ip)->s_dirty_root);
 		write_ondisk_inode(g_root_dev, ip);
 
-		if (ip->itype == T_DIR) 
+		if (ip->itype == T_DIR)
 			persist_dirty_dirent_block(ip);
 	}
 
 	// save block allocation bitmap
 	store_all_bitmap(g_root_dev, sb[g_root_dev]->s_blk_bitmap);
-	
+
 	return 0;
 }
 
-static int persist_dirty_objects_ssd(void) 
+static int persist_dirty_objects_ssd(void)
 {
 	struct rb_node *node;
 
@@ -1600,7 +1600,7 @@ static int persist_dirty_objects_ssd(void)
 	return 0;
 }
 
-static int persist_dirty_objects_hdd(void) 
+static int persist_dirty_objects_hdd(void)
 {
 	struct rb_node *node;
 
@@ -1611,7 +1611,7 @@ static int persist_dirty_objects_hdd(void)
 	return 0;
 }
 
-static int digest_logs(uint8_t from_dev, int n_hdrs, 
+static int digest_logs(uint8_t from_dev, int n_hdrs,
 		addr_t *loghdr_to_digest, int *rotated)
 {
 	loghdr_meta_t *loghdr_meta;
@@ -1632,7 +1632,7 @@ static int digest_logs(uint8_t from_dev, int n_hdrs,
 	// digest log entries
 	for (i = 0 ; i < n_hdrs; i++) {
 		loghdr_meta = read_log_header(from_dev, *loghdr_to_digest);
-		
+
 		if (loghdr_meta->loghdr->inuse != LH_COMMIT_MAGIC) {
 			mlfs_assert(loghdr_meta->loghdr->inuse == 0);
 			mlfs_free(loghdr_meta);
@@ -1640,17 +1640,17 @@ static int digest_logs(uint8_t from_dev, int n_hdrs,
 		}
 
 #ifdef DIGEST_OPT
-		if (enable_perf_stats)	
+		if (enable_perf_stats)
 			tsc_begin = asm_rdtscp();
 		digest_replay_and_optimize(from_dev, loghdr_meta, &replay_list);
-		if (enable_perf_stats)	
+		if (enable_perf_stats)
 			g_perf_stats.replay_time_tsc += asm_rdtscp() - tsc_begin;
 #else
 		digest_each_log_entries(from_dev, loghdr_meta);
 #endif
 
 		// rotated when next_loghdr_blkno jumps to beginning of the log.
-		// FIXME: instead of this condition, it would be better if 
+		// FIXME: instead of this condition, it would be better if
 		// *loghdr_to_digest > the lost block of application log.
 		if (*loghdr_to_digest > loghdr_meta->loghdr->next_loghdr_blkno) {
 			mlfs_debug("loghdr_to_digest %lu, next header %lu\n",
@@ -1666,10 +1666,10 @@ static int digest_logs(uint8_t from_dev, int n_hdrs,
 	}
 
 #ifdef DIGEST_OPT
-	if (enable_perf_stats)	
+	if (enable_perf_stats)
 		tsc_begin = asm_rdtscp();
 	digest_log_from_replay_list(from_dev, &replay_list);
-	if (enable_perf_stats)	
+	if (enable_perf_stats)
 		g_perf_stats.apply_time_tsc += asm_rdtscp() - tsc_begin;
 #endif
 
@@ -1704,7 +1704,7 @@ static void handle_digest_request(void *arg)
 	buf = digest_arg->msg;
 
 	// parsing digest request
-	sscanf(buf, "|%s |%d|%u|%lu|%lu|", 
+	sscanf(buf, "|%s |%d|%u|%lu|%lu|",
 			cmd_header, &dev_id, &digest_count, &digest_blkno, &end_blkno);
 
 	mlfs_debug("%s\n", cmd_header);
@@ -1726,16 +1726,16 @@ static void handle_digest_request(void *arg)
 
 		digest_count = digest_logs(dev_id, digest_count, &digest_blkno, &rotated);
 
-		if (enable_perf_stats)	
-			g_perf_stats.digest_time_tsc = 
+		if (enable_perf_stats)
+			g_perf_stats.digest_time_tsc =
 				(asm_rdtscp() - g_perf_stats.digest_time_tsc);
 
-		mlfs_debug("-- Total used block %d\n", 
+		mlfs_debug("-- Total used block %d\n",
 				bitmap_weight((uint64_t *)sb[g_root_dev].s_blk_bitmap->bitmap,
 					sb[g_root_dev].ondisk->ndatablocks));
 
 		memset(response, 0, MAX_SOCK_BUF);
-		sprintf(response, "|ACK |%d|%lu|%d|%d|", 
+		sprintf(response, "|ACK |%d|%lu|%d|%d|",
 				digest_count, digest_blkno, rotated, lru_updated);
 		mlfs_info("Write %s to libfs\n", response);
 
@@ -1747,20 +1747,20 @@ static void handle_digest_request(void *arg)
 		persist_dirty_objects_hdd();
 #endif
 
-		sendto(sock_fd, response, MAX_SOCK_BUF, 0, 
+		sendto(sock_fd, response, MAX_SOCK_BUF, 0,
 				(struct sockaddr *)&digest_arg->cli_addr, sizeof(struct sockaddr_un));
 
 		show_storage_stats();
 
-		if (enable_perf_stats)	
+		if (enable_perf_stats)
 			show_kernfs_stats();
 
 	} else if (strcmp(cmd_header, "lru") == 0) {
 		// only used for debugging.
 		if (0) {
 			lru_node_t *l;
-			list_for_each_entry(l, &lru_heads[g_log_dev], list) 
-				mlfs_info("%u - %lu\n", 
+			list_for_each_entry(l, &lru_heads[g_log_dev], list)
+				mlfs_info("%u - %lu\n",
 						l->val.inum, l->val.lblock);
 		}
 	} else {
@@ -1791,7 +1791,7 @@ static void wait_for_event(void)
 
 	if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
 		panic("bind error");
-	
+
 	// make it non-blocking
 	flags = fcntl(sock_fd, F_GETFL, 0);
 	flags |= O_NONBLOCK;
@@ -1841,13 +1841,13 @@ static void wait_for_event(void)
 						(struct sockaddr *)&cli_addr, &len);
 
 				// When clients hang up, the recvfrom returns 0 (EOF).
-				if (ret == 0) 
+				if (ret == 0)
 					continue;
 
 				mlfs_info("GET: %s\n", buf);
 
 				memset(cmd_header, 0, 12);
-				sscanf(buf, "|%s |%d|%u|%lu|%lu|", 
+				sscanf(buf, "|%s |%d|%u|%lu|%lu|",
 						cmd_header, &dev_id, &digest_count, &digest_blkno, &end_blkno);
 
 				digest_arg = (struct digest_arg *)mlfs_alloc(sizeof(struct digest_arg));
@@ -1856,11 +1856,12 @@ static void wait_for_event(void)
 				memmove(digest_arg->msg, buf, MAX_SOCK_BUF);
 
 #ifdef CONCURRENT
-				if (dev_id == 4)
+				if (dev_id == 4) {
 					thpool_add_work(thread_pool, handle_digest_request, (void *)digest_arg);
-				else 
+				} else {
 					//thpool_add_work(thread_pool_ssd, handle_digest_request, (void *)digest_arg);
 					thpool_add_work(thread_pool, handle_digest_request, (void *)digest_arg);
+        }
 #else
 				handle_digest_request((void *)digest_arg);
 #endif
@@ -1927,9 +1928,9 @@ static void shared_memory_init(void)
 	if (ret == -1)
 		panic("cannot ftruncate shared memory\n");
 
-	shm_base = (uint8_t *)mmap(SHM_START_ADDR, 
-			SHM_SIZE + 4096, 
-			PROT_READ| PROT_WRITE, 
+	shm_base = (uint8_t *)mmap(SHM_START_ADDR,
+			SHM_SIZE + 4096,
+			PROT_READ| PROT_WRITE,
 			MAP_SHARED | MAP_POPULATE | MAP_FIXED,
 			shm_fd, 0);
 
@@ -1984,7 +1985,7 @@ void init_fs(void)
 	g_log_dev = 4;
 
 #ifdef USE_SLAB
-	mlfs_slab_init(3UL << 30); 
+	mlfs_slab_init(3UL << 30);
 #endif
 
 	device_init();
@@ -1996,7 +1997,7 @@ void init_fs(void)
 
 	locks_init();
 
-	for (i = 0; i < g_n_devices; i++) 
+	for (i = 0; i < g_n_devices; i++)
 		sb[i] = mlfs_zalloc(sizeof(struct super_block));
 
 	read_superblock(g_root_dev);
@@ -2007,7 +2008,6 @@ void init_fs(void)
 	read_superblock(g_ssd_dev);
 	balloc_init(g_ssd_dev, sb[g_ssd_dev]);
 #endif
-
 #ifdef USE_HDD
 	read_superblock(g_hdd_dev);
 	balloc_init(g_hdd_dev, sb[g_hdd_dev]);
@@ -2015,8 +2015,8 @@ void init_fs(void)
 
 	memset(&g_perf_stats, 0, sizeof(kernfs_stats_t));
 
-	inode_version_table = 
-		(uint16_t *)mlfs_zalloc(sizeof(uint16_t) * NINODES); 
+	inode_version_table =
+		(uint16_t *)mlfs_zalloc(sizeof(uint16_t) * NINODES);
 
 	perf_profile = getenv("MLFS_PROFILE");
 
@@ -2027,9 +2027,15 @@ void init_fs(void)
 
 	mlfs_debug("%s\n", "LIBFS is initialized");
 
-	thread_pool = thpool_init(1);
+  // iangneal: change to make our max number.
+  thread_pool = thpool_init(1);
+  //thread_pool = thpool_init(max_io_queues);
 	// A fixed thread for using SPDK.
-	thread_pool_ssd = thpool_init(1);
+	thread_pool_ssd = thpool_init(max_io_queues);
+	//thread_pool_ssd = thpool_init(1);
+
+  printf("Initialized thread pool with %d threads.\n", max_io_queues);
+
 #ifdef FCONCURRENT
 	file_digest_thread_pool = thpool_init(8);
 #endif
@@ -2071,11 +2077,11 @@ void read_superblock(uint8_t dev)
 
 	mlfs_info("superblock: size %lu nblocks %lu ninodes %u\n"
 			"[inode start %lu bmap start %lu datablock start %lu log start %lu]\n",
-			disk_sb[dev].size, 
-			disk_sb[dev].ndatablocks, 
+			disk_sb[dev].size,
+			disk_sb[dev].ndatablocks,
 			disk_sb[dev].ninodes,
-			disk_sb[dev].inode_start, 
-			disk_sb[dev].bmap_start, 
+			disk_sb[dev].inode_start,
+			disk_sb[dev].bmap_start,
 			disk_sb[dev].datablock_start,
 			disk_sb[dev].log_start);
 
@@ -2085,7 +2091,7 @@ void read_superblock(uint8_t dev)
 	sb[dev]->last_block_allocated = 0;
 
 	// The partition is GC unit (1 GB) in SSD.
-	// disk_sb[dev].size : total # of blocks 
+	// disk_sb[dev].size : total # of blocks
 	sb[dev]->n_partition = disk_sb[dev].size >> 18;
 
 	if (disk_sb[dev].size % (1 << 18))

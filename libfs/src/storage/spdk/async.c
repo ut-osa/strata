@@ -43,7 +43,14 @@ struct spdk_async_io {
 	uint64_t start, len;
 };
 
+//#define pthread_mutex_lock(m) do { printf("TRY LOCK @ %d\n", __LINE__); pthread_mutex_lock(m); printf("LOCK\n"); } while (0)
+//#define pthread_mutex_unlock(m) do { printf("TRY UNLOCK @ %d\n", __LINE__); pthread_mutex_unlock(m); printf("UNLOCK\n"); } while (0)
+
+#ifndef CONCURRENT
+// (iangneal): Only use a special readahead qpair if we're not already making a
+// bunch of parallel qpairs.
 static struct spdk_nvme_qpair *read_qpair;
+#endif
 static uint8_t do_readahead = 0;
 static uint8_t *write_buffer;
 static uint8_t *read_buffer;
@@ -51,22 +58,23 @@ static uint32_t write_buffer_pointer = 0;
 static uint32_t read_buffer_pointer = 0;
 
 /**********************************
- * 
- *      GENERAL FUNCTIONS   
- *      
+ *
+ *      GENERAL FUNCTIONS
+ *
  **********************************/
 
-int spdk_process_completions(int read) 
+int spdk_process_completions(int read)
 {
+  int r = 0;
 	struct ns_entry *ns_entry = g_namespaces;
-	struct spdk_nvme_qpair *qpair;
-
+#ifndef CONCURRENT
+  struct spdk_nvme_qpair *qpair;
 	if (read)
 		qpair = read_qpair;
 	else
-		qpair = ns_entry->qpair;
+		qpair = ns_entry->qpairs[0];
 
-	int r = spdk_nvme_qpair_process_completions(qpair, 0);
+	r = spdk_nvme_qpair_process_completions(qpair, 0);
 	//if not an error
 	if (r > 0) {
 		if (read)
@@ -76,22 +84,40 @@ int spdk_process_completions(int read)
 
 		//printf("completed %d, oustanding: %d\n", r, async_data.issued);
 	}
+#else
+  // iangneal: check every qpair.
+  for (int i = 0; i < ns_entry->nqpairs; ++i) {
+    pthread_mutex_lock(ns_entry->qtexs[i]);
+    r = spdk_nvme_qpair_process_completions(ns_entry->qpairs[i], 0);
+    pthread_mutex_unlock(ns_entry->qtexs[i]);
+    if (r >= 0) {
+      if (read)
+        async_data.read_issued -= r;
+      else
+        async_data.write_issued -= r;
+    } else {
+      printf("completion error %d\n", r);
+    }
+  }
+#endif
 	return r;
 }
 
 void spdk_wait_completions(int read)
 {
 	struct ns_entry *ns_entry = g_namespaces;
-	struct spdk_nvme_qpair *qpair;
 	unsigned long nr_io_waits;
 
+	/* Waiting all outstanding IOs */
+#ifndef CONCURRENT
+  struct spdk_nvme_qpair *qpair;
 	if (read) {
 		nr_io_waits = async_data.read_issued;
 		qpair = read_qpair;
 	}
 	else {
 		nr_io_waits = async_data.write_issued;
-		qpair = ns_entry->qpair;
+		qpair = ns_entry->qpairs[0];
 	}
 
 	/* Waiting all outstanding IOs */
@@ -105,19 +131,50 @@ void spdk_wait_completions(int read)
 
 			nr_io_waits -= r;
 
-			//printf("WAITING oustanding: %d\n", r, async_data.issued);
 		} else if (r < 0) {
 			printf("completion error %d\n", r);
 		}
 	}
+#else
+  if (read)
+    nr_io_waits = async_data.read_issued;
+  else
+    nr_io_waits = async_data.write_issued;
+
+  // pre-lock all the qpairs.
+  for (int i = 0; i < ns_entry->nqpairs; ++i)
+    pthread_mutex_lock(ns_entry->qtexs[i]);
+
+
+  while (nr_io_waits != 0) {
+    // iangneal: check every qpair.
+    for (int i = 0; i < ns_entry->nqpairs; ++i) {
+      int r = spdk_nvme_qpair_process_completions(ns_entry->qpairs[i], 0);
+      if (r >= 0) {
+        if (read)
+          async_data.read_issued -= r;
+        else
+          async_data.write_issued -= r;
+      } else {
+        printf("completion error %d\n", r);
+      }
+
+      nr_io_waits -= r;
+    }
+  }
+
+  // unlock all the qpairs, reverse order
+  for (int i = ns_entry->nqpairs - 1; i >= 0; --i)
+    pthread_mutex_unlock(ns_entry->qtexs[i]);
+#endif
 }
 
-void spdk_async_io_exit(void) 
+void spdk_async_io_exit(void)
 {
 	libspdk_exit();
 }
 
-unsigned int spdk_async_get_n_lbas(void) 
+unsigned int spdk_async_get_n_lbas(void)
 {
 	return libspdk_get_n_lbas();
 }
@@ -132,42 +189,54 @@ int spdk_async_io_init(void)
 	async_data.write_issued = 0;
 
 	ret = libspdk_init();
-
 	if (ret < 0)
-		panic("cannot initialized libspdk\n");
+		panic("cannot initialize libspdk\n");
 
+#ifndef CONCURRENT
 	// allocate separate q_pair for readahead
 	read_qpair = spdk_nvme_ctrlr_alloc_io_qpair(g_namespaces->ctrlr, NULL, 0);
-	if (!read_qpair) 
-		panic("cannot allocated qpair\n");
+	if (!read_qpair)
+		panic("cannot allocate qpair\n");
+#endif
 
 	//ra_io = mlfs_alloc(sizeof(struct spdk_async_io));
 	//read_io = mlfs_alloc(sizeof(struct spdk_async_io));
-	
+
 	read_buffer = spdk_dma_zmalloc((6 << 20), 0x1000, NULL);
-	ra.ra_buf = spdk_dma_zmalloc((2 << 20), 0x1000, NULL); 
-	write_buffer = spdk_dma_zmalloc((6 << 20), 0x1000, NULL); 
+	ra.ra_buf = spdk_dma_zmalloc((2 << 20), 0x1000, NULL);
+	write_buffer = spdk_dma_zmalloc((6 << 20), 0x1000, NULL);
 
 	return 0;
 }
 
 /**********************************
- * 
- *      READ FUNCTIONS   
- *      
+ *
+ *      READ FUNCTIONS
+ *
  **********************************/
 
 static int spdk_readahead_completions(void)
 {
 	//printf("RA completion (before) %d\n", async_data.ra_issued);
+#ifdef CONCURRENT
+  int idx = qpair_idx();
+  pthread_mutex_lock(g_namespaces->qtexs[idx]);
+#endif
 	while (async_data.ra_issued != 0) {
+#ifdef CONCURRENT
+		int r = spdk_nvme_qpair_process_completions(g_namespaces->qpairs[idx], 0);
+#else
 		int r = spdk_nvme_qpair_process_completions(read_qpair, 0);
+#endif
 		if (r > 0) {
 			//printf("completion %d\n", r);
 			//fflush(stdout);
 			async_data.ra_issued -= r;
 		}
 	}
+#ifdef CONCURRENT
+  pthread_mutex_unlock(g_namespaces->qtexs[idx]);
+#endif
 
 	//printf("RA completion (after) %d\n", async_data.ra_issued);
 	//return r;
@@ -175,7 +244,7 @@ static int spdk_readahead_completions(void)
 }
 
 static void spdk_async_readahead_callback(void *arg,
-		const struct spdk_nvme_cpl *completion) 
+		const struct spdk_nvme_cpl *completion)
 {
 	struct spdk_async_io *io = arg;
 
@@ -201,44 +270,21 @@ int spdk_async_readahead(unsigned long blockno, unsigned int io_size)
 	unsigned int i;
 	static struct spdk_async_io *ra_io = NULL;
 	int n_ios = ceil((float)io_size/(float)async_data.inner_io_size);
-	
+#ifdef CONCURRENT
+  int idx = qpair_idx();
+#endif
+
 	if (!do_readahead)
 		return 0;
 
 	ra.blockno = blockno;
 	ra.size = io_size;
 
-#if 0
-	uint32_t n_blocks;
-	ra_io->user_arg = NULL;
-	ra_io->user_cb = NULL;
-	//ra_io->buffer = ra.ra_buf;
-	ra_io->buffer = spdk_zmalloc(io_size, 0x1000, NULL);
-	ra_io->ios_left = 1;
-	ra_io->len = io_size;
-
-	if (io_size < g_block_size_bytes)
-		n_blocks = 1;
-	else {
-		n_blocks = io_size >> g_block_size_shift; 	
-		if (io_size % g_block_size_bytes)
-			n_blocks++;
-	}
-
-	if (spdk_nvme_ns_cmd_read(
-				ns_entry->ns, read_qpair, ra_io->buffer,
-				ra.blockno, /* LBA start */
-				n_blocks, /* number of LBAs */
-				spdk_async_readahead_callback, ra_io, 0) != 0) {
-		fprintf(stderr, "readahead I/O failed\n");
-		return -1;
-	}
+#ifdef CONCURRENT
+    pthread_mutex_lock(ns_entry->qtexs[idx]);
 #endif
-
-	//printf("do readahead!\n");
-
-	for (i = 0 ; i < io_size; i+= async_data.inner_io_size) {
-		int to_read = io_size - i < async_data.inner_io_size ? 
+	for (i = 0; i < io_size; i += async_data.inner_io_size) {
+		int to_read = io_size - i < async_data.inner_io_size ?
 			io_size - i : async_data.inner_io_size;
 		int inner_blocks = ceil(to_read/BLOCK_SIZE);
 		unsigned long to_block = blockno+(i/BLOCK_SIZE);
@@ -255,36 +301,46 @@ int spdk_async_readahead(unsigned long blockno, unsigned int io_size)
 
 		//printf("Issuing readahead of %d to block %d\n", to_block, inner_blocks);
 		if(spdk_nvme_ns_cmd_read(
-					ns_entry->ns, 
-					read_qpair, 
+					ns_entry->ns,
+#ifdef CONCURRENT
+          ns_entry->qpairs[idx],
+#else
+					read_qpair,
+#endif
 					ra_io->buffer,
 					to_block, /* LBA start */
 					inner_blocks, /* number of LBAs */
 					spdk_async_readahead_callback, ra_io, 0) != 0) {
 			fprintf(stderr, "starting write I/O failed\n");
+#ifdef CONCURRENT
+      pthread_mutex_unlock(ns_entry->qtexs[idx]);
+#endif
 			return -1;
 		}
 
 		async_data.ra_issued++;
 	}
+#ifdef CONCURRENT
+  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+#endif
 
 	return 0;
 }
 
 static void spdk_async_io_read_callback(void *arg,
-		const struct spdk_nvme_cpl *completion) 
+		const struct spdk_nvme_cpl *completion)
 {
 	uint64_t start_tsc = 0;
 	struct spdk_async_io *io = arg;
 
 	mlfs_debug("copy to user_buffer start %d len %d\n", io->start, io->len);
 
-	if (g_enable_perf_stats) 
+	if (g_enable_perf_stats)
 		start_tsc = asm_rdtscp();
 
 	memcpy(io->guest_buffer+io->start, io->buffer + io->start, io->len);
 
-	if (g_enable_perf_stats) 
+	if (g_enable_perf_stats)
 		g_spdk_perf_stats.memcpy_tsc += (asm_rdtscp() - start_tsc);
 
 	io->ios_left -= 1;
@@ -303,7 +359,7 @@ static void spdk_async_io_read_callback(void *arg,
  * io size is in bytes. blockno is the actual block we want to read
  * cannot assume guest buffer is in pinned memory, so need a copy
  */
-int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno, 
+int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 		uint32_t bytes_to_read, void(* cb)(void*), void* arg)
 {
 	uint32_t i;
@@ -312,10 +368,13 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 	int n_ios = ceil((float)bytes_to_read/(float)async_data.inner_io_size);
 	struct ns_entry *ns_entry = g_namespaces;
 	struct spdk_async_io* read_io;
-	
+#ifdef CONCURRENT
+  int idx = qpair_idx();
+#endif
+
 	/* check whether data can be served from readahead buffer */
 	if (blockno >= ra.blockno &&
-		(blockno + (bytes_to_read >> g_block_size_shift) <= 
+		(blockno + (bytes_to_read >> g_block_size_shift) <=
 		 (ra.blockno) + (ra.size >> g_block_size_shift))) {
 		uint32_t ra_offset;
 
@@ -329,16 +388,16 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 
 		memcpy(guest_buffer, ra.ra_buf + ra_offset, bytes_to_read);
 
-		mlfs_debug("Get from RA buffer: req=%lu-%lu, ra=%lu-%lu\n", 
+		mlfs_debug("Get from RA buffer: req=%lu-%lu, ra=%lu-%lu\n",
 				blockno, (bytes_to_read >> 12),
 				ra.blockno, (ra.size >> 12));
 
 		return bytes_to_read;
-	} 
+	}
 
 	do_readahead = 1;
 
-	mlfs_debug("RA is not available: req=%lu-%lu, ra=%lu-%lu\n", 
+	mlfs_debug("RA is not available: req=%lu-%lu, ra=%lu-%lu\n",
 			blockno, (bytes_to_read >> 12),
 			ra.blockno, (ra.size >> 12));
 
@@ -357,14 +416,17 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 	if (bytes_to_read < g_block_size_bytes)
 		n_blocks = 1;
 	else {
-		n_blocks = bytes_to_read >> g_block_size_shift; 	
+		n_blocks = bytes_to_read >> g_block_size_shift;
 		if (bytes_to_read % g_block_size_bytes)
 			n_blocks++;
 	}
 
-	for (i = 0 ; i < bytes_to_read ; i+= async_data.inner_io_size) {
+#ifdef CONCURRENT
+  pthread_mutex_lock(ns_entry->qtexs[idx]);
+#endif
+	for (i = 0; i < bytes_to_read; i += async_data.inner_io_size) {
 		//min (io_size, remaining bytes)
-		int to_read = bytes_to_read - i < async_data.inner_io_size ? 
+		int to_read = bytes_to_read - i < async_data.inner_io_size ?
 			bytes_to_read - i : async_data.inner_io_size;
 		int inner_blocks = ceil(to_read/BLOCK_SIZE);
 		unsigned long to_block = blockno+(i/BLOCK_SIZE);
@@ -382,20 +444,29 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 
 		mlfs_debug("Issuing read of %d to block %d\n", to_block, inner_blocks);
 		if(spdk_nvme_ns_cmd_read(
-					ns_entry->ns, 
-					//ns_entry->qpair, 
-					read_qpair, 
-					read_io->buffer + i,
+					ns_entry->ns,
+#ifdef CONCURRENT
+					ns_entry->qpairs[idx],
+#else
+					read_qpair,
+#endif
+          read_io->buffer + i,
 					to_block, /* LBA start */
 					inner_blocks, /* number of LBAs */
 					spdk_async_io_read_callback, read_io, 0) != 0) {
 			fprintf(stderr, "starting write I/O failed\n");
+#ifdef CONCURRENT
+      pthread_mutex_unlock(ns_entry->qtexs[idx]);
+#endif
 			return -1;
 		}
 		//could add all at once, but this will prevent infinite waiting in case
 		//one write fails
 		async_data.read_issued++;
 	}
+#ifdef CONCURRENT
+  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+#endif
 
 	read_buffer_pointer += i;
 	read_buffer_pointer = (read_buffer_pointer % (6 << 20));
@@ -404,12 +475,12 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 }
 
 /**********************************
- * 
- *      WRITE FUNCTIONS   
- *      
+ *
+ *      WRITE FUNCTIONS
+ *
  **********************************/
 static void spdk_async_io_write_callback(void *arg,
-		const struct spdk_nvme_cpl *completion) 
+		const struct spdk_nvme_cpl *completion)
 {
 	struct spdk_async_io *io = arg;
 	//decrement how many ios are left
@@ -427,8 +498,8 @@ static void spdk_async_io_write_callback(void *arg,
 	mlfs_debug("Write callback done\n");
 }
 
-int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno, 
-		uint32_t bytes_to_write, void(* cb)(void*), void* arg) 
+int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
+		uint32_t bytes_to_write, void(* cb)(void*), void* arg)
 {
 	struct spdk_async_io* io;
 	uint64_t start_tsc = 0;
@@ -437,6 +508,7 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
 	//how many ios we need to submit
 	int n_ios = ceil((float)bytes_to_write/(float)async_data.inner_io_size);
 	unsigned int i;
+  int idx = qpair_idx();
 
 	//if it wont fit all, dont issue any
 	//TODO: possibly write as many bytes as we can and return this amount
@@ -454,7 +526,7 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
 	if (bytes_to_write < g_block_size_bytes)
 		n_blocks = 1;
 	else {
-		n_blocks = bytes_to_write >> g_block_size_shift; 	
+		n_blocks = bytes_to_write >> g_block_size_shift;
 		if (bytes_to_write % g_block_size_bytes)
 			n_blocks++;
 	}
@@ -463,36 +535,42 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
 	io->user_arg = arg;
 	io->user_cb = cb;
 	io->buffer = write_buffer + write_buffer_pointer;
-	mlfs_debug("%d / %d    = ios left %d\n", 
+	mlfs_debug("%d / %d    = ios left %d\n",
 			bytes_to_write, async_data.inner_io_size, n_ios);
 	io->ios_left = n_ios;
 
 	//this memcpy segfaults if we have too long of a queue
 	//and large io size because we couldnt alloc that many bytes
-	if (g_enable_perf_stats) 
+	if (g_enable_perf_stats)
 		start_tsc = asm_rdtscp();
-	
+
 	memcpy(io->buffer, guest_buffer, bytes_to_write);
 
-	if (g_enable_perf_stats) 
+	if (g_enable_perf_stats)
 		g_spdk_perf_stats.memcpy_tsc += (asm_rdtscp() - start_tsc);
 
+#ifdef CONCURRENT
+  pthread_mutex_lock(ns_entry->qtexs[idx]);
+#endif
 	for (i = 0 ; i < bytes_to_write ; i+= async_data.inner_io_size) {
 		//min (io_size, remaining bytes)
-		int to_write = bytes_to_write - i < async_data.inner_io_size ? 
+		int to_write = bytes_to_write - i < async_data.inner_io_size ?
 			bytes_to_write - i : async_data.inner_io_size;
 		int inner_blocks = ceil(to_write/BLOCK_SIZE);
 		int to_block = blockno+(i/BLOCK_SIZE);
 
 		mlfs_debug("Issuing write of %d to block %d\n", to_block, inner_blocks);
 		if(spdk_nvme_ns_cmd_write(
-					ns_entry->ns, 
-					ns_entry->qpair, 
+					ns_entry->ns,
+					ns_entry->qpairs[idx],
 					io->buffer + i,
 					to_block, /* LBA start */
 					inner_blocks, /* number of LBAs */
 					spdk_async_io_write_callback, io, 0) != 0) {
 			fprintf(stderr, "starting write I/O failed\n");
+#ifdef CONCURRENT
+      pthread_mutex_unlock(ns_entry->qtexs[idx]);
+#endif
 			return -1;
 		}
 		//could add all at once, but this will prevent infinite waiting in case
@@ -503,10 +581,13 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
 	write_buffer_pointer += i;
 	write_buffer_pointer = (write_buffer_pointer % (6 << 20));
 
+#ifdef CONCURRENT
+  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+#endif
 	return bytes_to_write;
 }
 
-static void spdk_sync_io_trim_callback(void *arg, 
+static void spdk_sync_io_trim_callback(void *arg,
 		const struct spdk_nvme_cpl *completion)
 {
 }
@@ -514,6 +595,7 @@ static void spdk_sync_io_trim_callback(void *arg,
 int spdk_io_trim(unsigned long blockno, unsigned int n_bytes)
 {
 	int ret;
+  int idx = qpair_idx();
 	struct spdk_nvme_dsm_range ranges[256];
 	struct ns_entry *ns_entry = g_namespaces;
 
@@ -526,8 +608,7 @@ int spdk_io_trim(unsigned long blockno, unsigned int n_bytes)
 		int blocks;
 		if(blocks_left >= max_range) {
 			blocks = max_range;
-		}
-		else {
+		} else {
 			blocks = blocks_left;
 		}
 		blocks_left -= blocks;
@@ -541,20 +622,27 @@ int spdk_io_trim(unsigned long blockno, unsigned int n_bytes)
 	}
 
 	//printf("Issuing %d ranges trim\n", count);
-	ret = spdk_nvme_ns_cmd_dataset_management(ns_entry->ns, 
-			ns_entry->qpair,
-			SPDK_NVME_DSM_ATTR_DEALLOCATE, 
-			ranges, 
-			count, 
-			spdk_sync_io_trim_callback, NULL);
+#ifdef CONCURRENT
+  pthread_mutex_lock(ns_entry->qtexs[idx]);
+#endif
+	ret = spdk_nvme_ns_cmd_dataset_management(ns_entry->ns,
+                                            ns_entry->qpairs[idx],
+                                            SPDK_NVME_DSM_ATTR_DEALLOCATE,
+                                            ranges,
+                                            count,
+                                            spdk_sync_io_trim_callback, NULL);
 
 	if (ret != 0) {
 		printf("cannot issue dataset command\n");
 		exit(-1);
 	}
 
-	//wait until its done
-	while(!spdk_nvme_qpair_process_completions(ns_entry->qpair, 0));
+	// Wait until it's done.
+	while(!spdk_nvme_qpair_process_completions(ns_entry->qpairs[idx], 0));
+
+#ifdef CONCURRENT
+  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+#endif
 
 	return 0;
 }
