@@ -82,6 +82,7 @@ static void *libspdk_init_worker(void *arg)
 {
 	int rc, i;
 	struct spdk_env_opts opts;
+  pthread_mutexattr_t attr;
 
 	/*
 	 * SPDK relies on an abstraction around the local environment
@@ -127,6 +128,9 @@ static void *libspdk_init_worker(void *arg)
     return (void*)-1;
   }
 
+  pthread_mutexattr_init(&attr);
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+
   for (i = 0; i < g_namespaces->nqpairs; ++i) {
     g_namespaces->qpairs[i] = spdk_nvme_ctrlr_alloc_io_qpair(g_namespaces->ctrlr,
                                                              NULL, 0);
@@ -140,7 +144,7 @@ static void *libspdk_init_worker(void *arg)
       perror("mlfs_alloc() for qpair mutex");
       return (void*)-1;
     }
-    rc = pthread_mutex_init(g_namespaces->qtexs[i], NULL);
+    rc = pthread_mutex_init(g_namespaces->qtexs[i], &attr);
     if (rc) {
       perror("qpair mutex init");
       return (void*)-1;

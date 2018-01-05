@@ -31,8 +31,11 @@ ISSUE_READ:
 			            NULL, NULL);
 
 	if (ret == -1 && errno == EBUSY) {
-		while(!spdk_process_completions(1));
-		goto ISSUE_READ;
+    // (iangneal): In the multithreaded case, someone else may have done our
+    // completions.
+		//while(!spdk_process_completions(1));
+    spdk_wait_completions(1);
+    goto ISSUE_READ;
 	}
 
 	if (ret == -1 && errno == EFBIG)
@@ -55,14 +58,15 @@ ISSUE_WRITE:
 			            NULL, NULL);
 
 	if (ret == -1 && errno == EBUSY) {
-		while(!spdk_process_completions(0));
-		goto ISSUE_WRITE;
+		//while(!spdk_process_completions(0));
+    spdk_wait_completions(0);
+    goto ISSUE_WRITE;
 	}
 
 	if (ret == -1 && errno == EFBIG)
 		panic("[SPDK] total io divided by io unit is larger than the command queue\n");
 
-	mlfs_assert(ret == io_size);
+  mlfs_assert(ret == io_size);
 
 	return ret;
 }
