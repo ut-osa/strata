@@ -83,7 +83,7 @@ int spdk_process_completions(int read)
 	if (read)
 		qpair = read_qpair;
 	else
-		qpair = ns_entry->qpairs[0];
+		qpair = ns_entry->qpairs[idx];
 
 	r = spdk_nvme_qpair_process_completions(qpair, 0);
 	//if not an error
@@ -120,6 +120,7 @@ void spdk_wait_completions(int read)
 {
 	struct ns_entry *ns_entry = g_namespaces;
 	unsigned long nr_io_waits = 0;
+  int idx = qpair_idx();
 
 	/* Waiting all outstanding IOs */
 #ifndef CONCURRENT
