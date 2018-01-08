@@ -52,6 +52,7 @@ int spdk_sync_io_read(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size,
 
   int n_blocks = ceil(io_size/(double)BLOCK_SIZE);
   int idx = qpair_idx();
+  int rc = -1;
 
 	//printf("SPDK: reading block\t%d-%d\n", blockno, blockno+n_blocks-1);
 
@@ -69,6 +70,8 @@ int spdk_sync_io_read(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size,
 
 #ifdef CONCURRENT
   pthread_mutex_lock(ns_entry->qtexs[idx]);
+#endif
+
 	if (spdk_nvme_ns_cmd_read(
 				ns_entry->ns, ns_entry->qpairs[idx], io.buffer,
         blockno, /* LBA start */
@@ -76,30 +79,21 @@ int spdk_sync_io_read(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size,
 				spdk_sync_io_read_callback, (void *)&io, 0) != 0) {
 		fprintf(stderr, "starting read I/O failed\n");
     pthread_mutex_unlock(ns_entry->qtexs[idx]);
-		return 1;
+		goto end;
 	}
 
 	while (!io.done) {
 		spdk_nvme_qpair_process_completions(ns_entry->qpairs[idx], 0);
 	}
 
+  rc = 0;
+
+end:
+#ifdef CONCURRENT
   pthread_mutex_unlock(ns_entry->qtexs[idx]);
-#else
-	if (spdk_nvme_ns_cmd_read(
-				ns_entry->ns, ns_entry->qpairs[idx], io.buffer,
-        blockno, /* LBA start */
-				n_blocks, /* number of LBAs */
-				spdk_sync_io_read_callback, (void *)&io, 0) != 0) {
-		fprintf(stderr, "starting read I/O failed\n");
-		return 1;
-	}
-
-	while (!io.done) {
-		spdk_nvme_qpair_process_completions(ns_entry->qpairs[idx], 0);
-	}
 #endif
 
-	return 0;
+	return rc;
 }
 
 // TODO: Youngjin: was the data that needs to be written allocated using rte
@@ -111,6 +105,7 @@ int spdk_sync_io_write(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size
 {
   int n_blocks = ceil(io_size/(double)BLOCK_SIZE);
   int idx = qpair_idx();
+  int rc = -1;
 
 	//printf("SPDK: writing block\t%d-%d\n", blockno, blockno+n_blocks-1);
 
@@ -129,35 +124,29 @@ int spdk_sync_io_write(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size
 
 #ifdef CONCURRENT
   pthread_mutex_lock(ns_entry->qtexs[idx]);
-	if (spdk_nvme_ns_cmd_write(
-				ns_entry->ns, ns_entry->qpairs[idx], io.buffer,
-        blockno, /* LBA start */
-				n_blocks, /* number of LBAs */
-				spdk_sync_io_write_callback, (void *)&io, 0) != 0) {
-		fprintf(stderr, "starting write I/O failed\n");
-    pthread_mutex_unlock(ns_entry->qtexs[idx]);
-		return 1;
-	}
-
-	while (!io.done) {
-		spdk_nvme_qpair_process_completions(ns_entry->qpairs[idx], 0);
-	}
-
-  pthread_mutex_unlock(ns_entry->qtexs[idx]);
-#else
-	if (spdk_nvme_ns_cmd_write(
-				ns_entry->ns, ns_entry->qpairs[idx], io.buffer,
-        blockno, /* LBA start */
-				n_blocks, /* number of LBAs */
-				spdk_sync_io_write_callback, (void *)&io, 0) != 0) {
-		fprintf(stderr, "starting write I/O failed\n");
-		return 1;
-	}
-
-	while (!io.done) {
-		spdk_nvme_qpair_process_completions(ns_entry->qpairs[idx], 0);
-	}
 #endif
 
-	return 0;
+	if (spdk_nvme_ns_cmd_write(
+				ns_entry->ns, ns_entry->qpairs[idx], io.buffer,
+        blockno, /* LBA start */
+				n_blocks, /* number of LBAs */
+				spdk_sync_io_write_callback, (void *)&io, 0) != 0) {
+		fprintf(stderr, "starting write I/O failed\n");
+    goto end;
+	}
+
+	while (!io.done) {
+		spdk_nvme_qpair_process_completions(ns_entry->qpairs[idx], 0);
+	}
+
+  rc = 0;
+
+end:
+
+#if CONCURRENT
+  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+#endif
+
+	return rc;
 }
+

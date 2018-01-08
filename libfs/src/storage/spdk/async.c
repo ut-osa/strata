@@ -64,10 +64,6 @@ static uint8_t **read_buffer;
 static uint32_t *write_buffer_pointer;
 static uint32_t *read_buffer_pointer;
 
-#ifdef CONCURRENT
-static pthread_mutex_t completion_mutex = PTHREAD_MUTEX_INITIALIZER;
-#endif
-
 /**********************************
  *
  *      GENERAL FUNCTIONS
@@ -97,7 +93,6 @@ int spdk_process_completions(int read)
 	}
 #else
   int total = 0;
-  pthread_mutex_lock(&completion_mutex);
   // iangneal: check every qpair.
   for (int i = 0; i < ns_entry->nqpairs; ++i) {
     pthread_mutex_lock(ns_entry->qtexs[i]);
@@ -111,7 +106,6 @@ int spdk_process_completions(int read)
     }
   }
   r = total;
-  pthread_mutex_unlock(&completion_mutex);
 #endif
 	return r;
 }
@@ -120,10 +114,10 @@ void spdk_wait_completions(int read)
 {
 	struct ns_entry *ns_entry = g_namespaces;
 	unsigned long nr_io_waits = 0;
-  int idx = qpair_idx();
 
 	/* Waiting all outstanding IOs */
 #ifndef CONCURRENT
+  int idx = qpair_idx();
   struct spdk_nvme_qpair *qpair;
 	if (read) {
 		nr_io_waits = async_data[idx].read_issued;
@@ -150,7 +144,6 @@ void spdk_wait_completions(int read)
 		}
 	}
 #else
-  pthread_mutex_lock(&completion_mutex);
 
   // pre-lock all the qpairs.
   for (int i = 0; i < ns_entry->nqpairs; ++i)
@@ -178,7 +171,6 @@ void spdk_wait_completions(int read)
   for (int i = ns_entry->nqpairs - 1; i >= 0; --i)
     pthread_mutex_unlock(ns_entry->qtexs[i]);
 
-  pthread_mutex_unlock(&completion_mutex);
 #endif
 }
 
@@ -348,7 +340,7 @@ int spdk_async_readahead(unsigned long blockno, unsigned int io_size)
 					to_block, /* LBA start */
 					inner_blocks, /* number of LBAs */
 					spdk_async_readahead_callback, ra_io, 0) != 0) {
-			fprintf(stderr, "starting write I/O failed\n");
+			fprintf(stderr, "readahead: starting write I/O failed\n");
       rc = -1;
       goto end;
 		}
@@ -407,7 +399,7 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 	struct ns_entry *ns_entry = g_namespaces;
 	struct spdk_async_io* read_io;
   int idx = qpair_idx();
-  int rc = 0;
+  int rc = -1;
 
 #ifdef CONCURRENT
   pthread_mutex_lock(ns_entry->qtexs[idx]);
@@ -449,7 +441,6 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 	//TODO: possibly read as many bytes as we can and return this amount
 	if(n_ios > Q_DEPTH) {
 	  errno = EFBIG;
-	  rc = -1;
     goto end;
 	}
 #ifdef CONCURRENT
@@ -458,7 +449,6 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 	if(async_data[idx].read_issued + n_ios > Q_DEPTH) {
 #endif
 		errno = EBUSY;
-		rc = -1;
     goto end;
 	}
 
@@ -500,8 +490,7 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 					to_block, /* LBA start */
 					inner_blocks, /* number of LBAs */
 					spdk_async_io_read_callback, read_io, 0) != 0) {
-			fprintf(stderr, "starting write I/O failed\n");
-			rc = -1;
+			fprintf(stderr, "read: starting write I/O failed\n");
       goto end;
 		}
 		//could add all at once, but this will prevent infinite waiting in case
@@ -623,7 +612,7 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
 					to_block, /* LBA start */
 					inner_blocks, /* number of LBAs */
 					spdk_async_io_write_callback, io, 0) != 0) {
-			fprintf(stderr, "starting write I/O failed\n");
+			fprintf(stderr, "write: starting write I/O failed\n");
 			goto end;
 		}
 		//could add all at once, but this will prevent infinite waiting in case

@@ -363,7 +363,7 @@ void io_bench::do_read(void)
 
     printf("%f\n", (float) time_stats_get_avg(&stats));
 
-    printf("Throughput: %3.3f MB\n",(float)((file_size_bytes) >> 20)
+    printf("Throughput: %3.3f MB/sec\n",(float)((file_size_bytes) >> 20)
            / (float) time_stats_get_avg(&stats));
   }
 
@@ -653,7 +653,7 @@ int main(int argc, char *argv[])
 
   time_stats_print(&main_stats, (char *)"--------------- stats");
 
-  printf("Aggregated throughput: %3.3f MB\n",
+  printf("Aggregated throughput: %3.3f MB/sec\n",
       ((float)n_threads * (float)((file_size_bytes) >> 20))
       / (float) time_stats_get_avg(&main_stats));
   printf("--------------------------------------------\n");

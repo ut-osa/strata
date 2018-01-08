@@ -24,7 +24,7 @@ inline void time_stats_stop(struct time_stats* ts)
    struct timeval t_elap;
    timersub(&end,&ts->time_start,&t_elap);
    double sec = (double)(t_elap.tv_sec * 1000000.0 + (double)t_elap.tv_usec) / 1000000.0;
-   
+
    ts->time_v[ts->count++] = sec;
 }
 
@@ -42,7 +42,7 @@ static int compare_latency(const void *a, const void *b) {
 		return 1;
 	} else if (*(double *)a == *(double *)b) {
 		return 0;
-	} else 
+	} else
 		return -1;
 }
 
@@ -73,9 +73,9 @@ void time_stats_print(struct time_stats* ts, char* msg)
 
 	   if (i == _99)
 		   lat_99 = ts->time_v[i];
-	   else if (i == _99_9)  
+	   else if (i == _99_9)
 		   lat_99_9 = ts->time_v[i];
-	   else if (i == _99_99)  
+	   else if (i == _99_99)
 		   lat_99_99 = ts->time_v[i];
 	   else if (i == _99_999)
 		   lat_99_999 = ts->time_v[i];
