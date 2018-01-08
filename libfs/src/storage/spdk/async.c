@@ -66,6 +66,37 @@ static uint32_t *read_buffer_pointer;
 
 /**********************************
  *
+ *      QPAIR FUNCTIONS
+ *
+ **********************************/
+#ifdef CONCURRENT
+static int acquire_qpair(int n_ios) {
+	struct ns_entry *ns_entry = g_namespaces;
+
+  if (n_ios > Q_DEPTH) return -EFBIG;
+
+  for (int i = 0; i < ns_entry->nqpairs; ++i) {
+    // Don't bother trying to acquire the mutex if the qpair is too full.
+    if (async_data[i].issued + n_ios > Q_DEPTH) continue;
+
+    int r = pthread_mutex_trylock(ns_entry->qtexs[i]);
+    if (r == 0) {
+      return i;
+    } else if (r != EBUSY) {
+      return -r;
+    } // else, keep checking for an available qpair.
+  }
+
+  return -EBUSY;
+}
+
+static int release_qpair(int qpair) {
+  return pthread_mutex_unlock(g_namespaces->qtexs[qpair]);
+}
+#endif
+
+/**********************************
+ *
  *      GENERAL FUNCTIONS
  *
  **********************************/
@@ -188,7 +219,7 @@ int spdk_async_io_init(void)
 {
 	int ret, i, n;
 
-  printf("Intializing spdk async engine\n");
+  printf("Initializing spdk async engine\n");
 
 	ret = libspdk_init();
 	if (ret < 0)
@@ -241,35 +272,23 @@ int spdk_async_io_init(void)
 
 static int spdk_readahead_completions(void)
 {
+#ifndef CONCURRENT
   int idx = qpair_idx();
 	//printf("RA completion (before) %d\n", async_data.ra_issued);
-#ifdef CONCURRENT
-  pthread_mutex_lock(g_namespaces->qtexs[idx]);
-	while (async_data[idx].issued != 0) {
-#else
 	while (async_data[idx].ra_issued != 0) {
-#endif
-#ifdef CONCURRENT
-		int r = spdk_nvme_qpair_process_completions(g_namespaces->qpairs[idx], 0);
-#else
 		int r = spdk_nvme_qpair_process_completions(read_qpair, 0);
-#endif
 		if (r > 0) {
 			//printf("completion %d\n", r);
 			//fflush(stdout);
-#ifdef CONCURRENT
-			async_data[idx].issued -= r;
-#else
 			async_data[idx].ra_issued -= r;
-#endif
 		}
 	}
-#ifdef CONCURRENT
-  pthread_mutex_unlock(g_namespaces->qtexs[idx]);
-#endif
 
 	//printf("RA completion (after) %d\n", async_data.ra_issued);
 	//return r;
+#else
+  spdk_process_completions(1);
+#endif
 	return 0;
 }
 
@@ -296,18 +315,19 @@ static void spdk_async_readahead_callback(void *arg,
 int spdk_async_readahead(unsigned long blockno, unsigned int io_size)
 {
 	// blockno is reserved for future
-  int rc = 0, idx = qpair_idx();
+  int rc = -1, idx = qpair_idx();
 	struct ns_entry *ns_entry = g_namespaces;
 	unsigned int i;
 	static struct spdk_async_io *ra_io = NULL;
 
-#ifdef CONCURRENT
-    pthread_mutex_lock(ns_entry->qtexs[idx]);
-#endif
-	int n_ios = ceil((float)io_size/(float)async_data[idx].inner_io_size);
-
 	if (!do_readahead[idx])
 		goto end;
+
+	int n_ios = ceil((float)io_size/(float)async_data[idx].inner_io_size);
+#ifdef CONCURRENT
+  idx = acquire_qpair(n_ios);
+  if (idx < 0) return -1;
+#endif
 
 	ra[idx].blockno = blockno;
 	ra[idx].size = io_size;
@@ -341,7 +361,6 @@ int spdk_async_readahead(unsigned long blockno, unsigned int io_size)
 					inner_blocks, /* number of LBAs */
 					spdk_async_readahead_callback, ra_io, 0) != 0) {
 			fprintf(stderr, "readahead: starting write I/O failed\n");
-      rc = -1;
       goto end;
 		}
 
@@ -354,7 +373,7 @@ int spdk_async_readahead(unsigned long blockno, unsigned int io_size)
 
 end:
 #ifdef CONCURRENT
-  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+  release_qpair(idx);
 #endif
 	return rc;
 }
@@ -398,12 +417,9 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 	int n_blocks;
 	struct ns_entry *ns_entry = g_namespaces;
 	struct spdk_async_io* read_io;
-  int idx = qpair_idx();
+  int idx = 0;
   int rc = -1;
 
-#ifdef CONCURRENT
-  pthread_mutex_lock(ns_entry->qtexs[idx]);
-#endif
 	//how many ios we need to submit
 	int n_ios = ceil((float)bytes_to_read/(float)async_data[idx].inner_io_size);
 
@@ -427,8 +443,10 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 				blockno, (bytes_to_read >> 12),
 				ra[idx].blockno, (ra[idx].size >> 12));
 
-    rc = bytes_to_read;
-    goto end;
+    //rc = bytes_to_read;
+
+    //goto end;
+    return bytes_to_read;
 	}
 
 	do_readahead[idx] = 1;
@@ -437,20 +455,26 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 			blockno, (bytes_to_read >> 12),
 			ra[idx].blockno, (ra[idx].size >> 12));
 
+#ifdef CONCURRENT
+  idx = acquire_qpair(n_ios);
+  if (idx < 0) {
+    errno = -idx;
+    return -1;
+  }
+#endif
+
+#ifndef CONCURRENT
 	// If it won't fit all, don't issue any
 	//TODO: possibly read as many bytes as we can and return this amount
 	if(n_ios > Q_DEPTH) {
 	  errno = EFBIG;
     goto end;
 	}
-#ifdef CONCURRENT
-	if(async_data[idx].issued + n_ios > Q_DEPTH) {
-#else
 	if(async_data[idx].read_issued + n_ios > Q_DEPTH) {
-#endif
 		errno = EBUSY;
     goto end;
 	}
+#endif
 
 	if (bytes_to_read < g_block_size_bytes)
 		n_blocks = 1;
@@ -509,7 +533,7 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
 
 end:
 #ifdef CONCURRENT
-  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+  release_qpair(idx);
 #endif
   return rc;
 }
@@ -548,12 +572,16 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
 	unsigned int i;
   int idx = qpair_idx(), rc = -1;
 
-#ifdef CONCURRENT
-  pthread_mutex_lock(ns_entry->qtexs[idx]);
-#endif
 	//how many ios we need to submit
 	int n_ios = ceil((float)bytes_to_write/(float)async_data[idx].inner_io_size);
 
+#ifdef CONCURRENT
+  idx = acquire_qpair(n_ios);
+  if (idx < 0) {
+    errno = -idx;
+    return -1;
+  }
+#else
 	//if it wont fit all, dont issue any
 	//TODO: possibly write as many bytes as we can and return this amount
 	if(n_ios > Q_DEPTH) {
@@ -561,14 +589,11 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
 		goto end;
 	}
 
-#ifdef CONCURRENT
-  if(async_data[idx].issued + n_ios > Q_DEPTH) {
-#else
 	if(async_data[idx].write_issued + n_ios > Q_DEPTH) {
-#endif
     errno = EBUSY;
 		goto end;
 	}
+#endif
 
 	//n_blocks = ceil(bytes_to_write/(double)BLOCK_SIZE);
 	if (bytes_to_write < g_block_size_bytes)
@@ -631,7 +656,7 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
 
 end:
 #ifdef CONCURRENT
-  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+  release_qpair(idx);
 #endif
   return rc;
 }
@@ -644,7 +669,6 @@ static void spdk_sync_io_trim_callback(void *arg,
 int spdk_io_trim(unsigned long blockno, unsigned int n_bytes)
 {
 	int ret;
-  int idx = qpair_idx();
 	struct spdk_nvme_dsm_range ranges[256];
 	struct ns_entry *ns_entry = g_namespaces;
 
@@ -652,6 +676,9 @@ int spdk_io_trim(unsigned long blockno, unsigned int n_bytes)
 	uint32_t max_range = 1 << 16;
 	uint32_t start_block = blockno;
 	uint32_t count = 0;
+
+  // Use the least-used qpair.
+  int idx = ns_entry->nqpairs - 1;
 
 	while (blocks_left > 0) {
 		int blocks;

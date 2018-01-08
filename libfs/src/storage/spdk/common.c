@@ -129,7 +129,8 @@ static void *libspdk_init_worker(void *arg)
   }
 
   pthread_mutexattr_init(&attr);
-  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+  //pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_DEFAULT);
 
   for (i = 0; i < g_namespaces->nqpairs; ++i) {
     g_namespaces->qpairs[i] = spdk_nvme_ctrlr_alloc_io_qpair(g_namespaces->ctrlr,
