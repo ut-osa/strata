@@ -28,6 +28,8 @@
 #define NOCREATE 0
 #define CREATE 1
 
+extern int max_kernfs_io_queues;
+
 int shm_fd = 0;
 uint8_t *shm_base;
 
@@ -2029,12 +2031,12 @@ void init_fs(void)
 
   // iangneal: change to make our max number.
   thread_pool = thpool_init(1);
-  //thread_pool = thpool_init(max_io_queues);
+  //thread_pool = thpool_init(max_kernfs_io_queues);
 	// A fixed thread for using SPDK.
-	thread_pool_ssd = thpool_init(max_io_queues);
+	thread_pool_ssd = thpool_init(max_kernfs_io_queues);
 	//thread_pool_ssd = thpool_init(1);
 
-  printf("Initialized thread pool with %d threads.\n", max_io_queues);
+  printf("Initialized thread pool with %d threads.\n", max_kernfs_io_queues);
 
 #ifdef FCONCURRENT
 	file_digest_thread_pool = thpool_init(8);

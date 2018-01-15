@@ -16,7 +16,10 @@ float clock_speed_mhz;
 
 // global
 long ncpus;
-int max_io_queues;
+int max_libfs_io_queues;
+int max_kernfs_io_queues;
+
+uint32_t Q_DEPTH;
 
 float spdk_get_cpu_clock_speed(void)
 {
@@ -80,8 +83,9 @@ void show_spdk_stats(void)
 
 static void *libspdk_init_worker(void *arg)
 {
-	int rc, i;
+	int rc, i, is_kernfs;
 	struct spdk_env_opts opts;
+  char* kernfs_var;
   pthread_mutexattr_t attr;
 
 	/*
@@ -114,11 +118,18 @@ static void *libspdk_init_worker(void *arg)
 		return (void*)-1;
   }
 
+  kernfs_var = getenv("KERNFS");
+  is_kernfs = kernfs_var && atoi(kernfs_var) == 1;
+
   // (iangneal): Limit the number of queues to one per core.
-  max_io_queues = max_io_queues > ncpus ? ncpus : max_io_queues;
+  max_libfs_io_queues = max_libfs_io_queues > ncpus ? ncpus
+                                                    : max_libfs_io_queues;
+  max_kernfs_io_queues = max_kernfs_io_queues > ncpus ? ncpus
+                                                      : max_kernfs_io_queues;
 
   // (iangneal): set up all qpairs
-  g_namespaces->nqpairs = max_io_queues;
+  g_namespaces->nqpairs = is_kernfs ? max_kernfs_io_queues
+                                    : max_libfs_io_queues;
   g_namespaces->qpairs = mlfs_alloc(g_namespaces->nqpairs *
                                     sizeof(*g_namespaces->qpairs));
   g_namespaces->qtexs = mlfs_alloc(g_namespaces->nqpairs *
@@ -273,12 +284,16 @@ void attach_cb(void *cb_ctx, const struct spdk_nvme_transport_id *trid,
 
   printf("Number of IO queues on device: %d\n", opts->num_io_queues);
 
+  Q_DEPTH = opts->io_queue_size;
+
   // iangneal: get the maximum number of IO queues supported by our device.
-  // Divided by two for kernfs/libfs even split.
+  // Divided by two for kernfs/libfs even split. Leftover queue goes to libfs.
 #ifdef CONCURRENT
-  max_io_queues = (opts->num_io_queues / 2);
+  max_libfs_io_queues = (opts->num_io_queues / 2) + (opts->num_io_queues % 2);
+  max_kernfs_io_queues = (opts->num_io_queues / 2);
 #else
-  max_io_queues = 1;
+  max_libfs_io_queues = 1;
+  max_kernfs_io_queues = 1;
 #endif
 }
 

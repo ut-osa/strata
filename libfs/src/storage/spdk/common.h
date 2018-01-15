@@ -14,16 +14,25 @@
 #include "spdk/nvme.h"
 //#include "spdk/pci.h"
 
+#define BLOCK_SIZE 4096
+
+//#define Q_DEPTH 512
+//#define Q_DEPTH 64
+
+//#define INNER_IO_SIZE (4U << 20);
+//#define INNER_IO_SIZE (512 << 10);
+//#define INNER_IO_SIZE (64 << 10);
+//#define INNER_IO_SIZE (16 << 10);
+#define INNER_IO_SIZE (4 << 10);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define BLOCK_SIZE 4096
-
 struct ctrlr_entry {
 	struct spdk_nvme_ctrlr	*ctrlr;
-	struct ctrlr_entry	*next;
-	char			name[1024];
+	struct ctrlr_entry    	*next;
+	char            		  	name[1024];
 };
 
 struct ns_entry {
@@ -65,15 +74,10 @@ float spdk_get_cpu_clock_speed(void);
 long spdk_get_num_cpus(void);
 
 extern long ncpus;
-extern int max_io_queues;
+extern int max_libfs_io_queues;
+extern int max_kernfs_io_queues;
 
-inline int qpair_idx(void) {
-#ifdef CONCURRENT
-  return ((int)syscall(SYS_gettid)) % max_io_queues;
-#else
-  return 0;
-#endif
-}
+extern uint32_t Q_DEPTH;
 
 #ifdef __cplusplus
 }

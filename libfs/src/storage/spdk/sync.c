@@ -9,6 +9,39 @@
 #include "common.h"
 #include "sync.h"
 
+/**********************************
+ *
+ *      QPAIR FUNCTIONS
+ *
+ **********************************/
+#ifdef CONCURRENT
+static int acquire_qpair(size_t n_ios) {
+	struct ns_entry *ns_entry = g_namespaces;
+  static volatile int try_me_first = 0;
+
+  if (n_ios > Q_DEPTH) return -EFBIG;
+
+  int f = try_me_first;
+
+  for (int i = f; i < ns_entry->nqpairs + f; ++i) {
+    int idx = i % ns_entry->nqpairs;
+
+    int r = pthread_mutex_trylock(ns_entry->qtexs[idx]);
+    if (r == 0) {
+      try_me_first = (idx + 1) % ns_entry->nqpairs;
+      return idx;
+    } else if (r != EBUSY) {
+      return -r;
+    } // else, keep checking for an available qpair.
+  }
+
+  return -EBUSY;
+}
+
+static int release_qpair(int qpair) {
+  return pthread_mutex_unlock(g_namespaces->qtexs[qpair]);
+}
+#endif
 
 unsigned int spdk_sync_get_n_lbas(void) {
   return libspdk_get_n_lbas();
@@ -51,7 +84,7 @@ int spdk_sync_io_read(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size,
 {
 
   int n_blocks = ceil(io_size/(double)BLOCK_SIZE);
-  int idx = qpair_idx();
+  int idx = 0;
   int rc = -1;
 
 	//printf("SPDK: reading block\t%d-%d\n", blockno, blockno+n_blocks-1);
@@ -69,7 +102,7 @@ int spdk_sync_io_read(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size,
 	struct ns_entry *ns_entry = g_namespaces;
 
 #ifdef CONCURRENT
-  pthread_mutex_lock(ns_entry->qtexs[idx]);
+  while ((idx = acquire_qpair(n_blocks)) == -EBUSY);
 #endif
 
 	if (spdk_nvme_ns_cmd_read(
@@ -78,7 +111,6 @@ int spdk_sync_io_read(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size,
 				n_blocks, /* number of LBAs */
 				spdk_sync_io_read_callback, (void *)&io, 0) != 0) {
 		fprintf(stderr, "starting read I/O failed\n");
-    pthread_mutex_unlock(ns_entry->qtexs[idx]);
 		goto end;
 	}
 
@@ -90,7 +122,7 @@ int spdk_sync_io_read(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size,
 
 end:
 #ifdef CONCURRENT
-  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+  release_qpair(idx);
 #endif
 
 	return rc;
@@ -104,8 +136,7 @@ int spdk_sync_io_write(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size
 	void(* cb)(void*), void* arg)
 {
   int n_blocks = ceil(io_size/(double)BLOCK_SIZE);
-  int idx = qpair_idx();
-  int rc = -1;
+  int rc = -1, idx = 0;
 
 	//printf("SPDK: writing block\t%d-%d\n", blockno, blockno+n_blocks-1);
 
@@ -123,7 +154,7 @@ int spdk_sync_io_write(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size
 	struct ns_entry *ns_entry = g_namespaces;
 
 #ifdef CONCURRENT
-  pthread_mutex_lock(ns_entry->qtexs[idx]);
+  while ((idx = acquire_qpair(n_blocks)) == -EBUSY);
 #endif
 
 	if (spdk_nvme_ns_cmd_write(
@@ -144,7 +175,7 @@ int spdk_sync_io_write(uint8_t *guest_buffer, uint32_t blockno, uint32_t io_size
 end:
 
 #if CONCURRENT
-  pthread_mutex_unlock(ns_entry->qtexs[idx]);
+  release_qpair(idx);
 #endif
 
 	return rc;

@@ -38,8 +38,10 @@ ISSUE_READ:
     goto ISSUE_READ;
 	}
 
-	if (ret == -1 && errno == EFBIG)
+	if (ret == -1 && errno == EFBIG) {
+    printf("%u\n", io_size / (4 << 10));
 		panic("[SPDK] total io divided by io unit is larger than the command queue\n");
+  }
 
 	mlfs_assert(ret == io_size);
 
