@@ -402,7 +402,8 @@ int spdk_async_io_read(uint8_t *guest_buffer, unsigned long blockno,
   int rc = -1;
 
 	//how many ios we need to submit
-	int n_ios = ceil((float)bytes_to_read/(float)async_data[idx].inner_io_size);
+	uint32_t n_ios = ceil((float)bytes_to_read/
+                        (float)async_data[idx].inner_io_size);
 
 	/* check whether data can be served from readahead buffer */
 	if (blockno >= ra[idx].blockno &&
@@ -553,7 +554,8 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
   int idx = 0, rc = -1;
 
 	//how many ios we need to submit
-	int n_ios = ceil((float)bytes_to_write/(float)async_data[idx].inner_io_size);
+	uint32_t n_ios = ceil((float)bytes_to_write/
+                        (float)async_data[idx].inner_io_size);
 
 	if (bytes_to_write < g_block_size_bytes) {
 		n_blocks = 1;

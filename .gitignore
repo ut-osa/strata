@@ -14,3 +14,6 @@ libfs/src/storage/spdk/sync.o
 
 # Don't commit unzipped jemalloc.
 libfs/lib/jemalloc-4.5.0
+
+# Benchmark data.
+libfs/tests/*.json
