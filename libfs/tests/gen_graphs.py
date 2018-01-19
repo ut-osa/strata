@@ -3,8 +3,11 @@
 from __future__ import print_function
 
 import argparse
+from collections import defaultdict
 import json
 from math import ceil
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot
 import numpy as np
 import os
@@ -18,71 +21,44 @@ trials = {
     'sr': {
       'sizes': ['1G', '2G', '4G'],
       'iosizes': ['4K', '16K', '64K'],
-      'threads': ['1', '2', '4']
+      'threads': ['1', '2', '3', '4']
     }
   }
 
-# Polynomial Regression
-def polyreg(x, y, f):
-	# fit values, and mean
-	yhat = f(x)
-	ybar = np.sum(y)/len(y)
-	ssreg = np.sum((yhat - ybar)**2)
-	sstot = np.sum((y - ybar)**2)
-	return ssreg / sstot
+# For a single IO amount, we have multiple throughput measurements.
+# Reduce that to (average, std dev) for all points on the line,
+def calc_y_vals(raw_y_vals):
+  averages = []
+  std_devs = []
+  for y_arr in raw_y_vals:
+    averages.append(abs(np.mean(y_arr)))
+    std_devs.append(np.std(y_arr))
 
+  return (averages, std_devs)
 
-def parse_from_json(json_file):
-  """
-      Parse the graph data from the JSON files, which is in an array of x,y
-      tuples, into a tuple of x,y arrays.
-  """
-  x_arr = []
-  y_arr = []
-  with open(json_file, "r") as f:
-    data = json.load(f)
-    for x, y in data:
-      x_arr += [x]
-      y_arr += [y]
+def do_multi_data_plot(x_vals, y_vals, y_errs, names_arr, outname):
+  line_arr = ["b", "g", "r", "k"]
 
-  return (np.array(x_arr), np.array(y_arr))
+  # Find the max y value in the whole graph -- helps set graph dimensions.
+  y_max = max([y_arr[-1] for y_arr in y_vals])
+  x_max = max([x_arr[-1] for x_arr in x_vals])
 
+  bar_width = 0.35
 
-def do_single_data_plot(data, lang, outname, degree):
-  # To plot the idealized n^3 curve.
-  t = np.arange(1, 1024, 2)
-  f = lambda x: (data[1][-1]/(1024.0**degree))*(x**degree)
+  first = True
+  for n, x_arr, y_arr, c, name in zip(range(0, len(x_vals)), x_vals, y_vals, line_arr, names_arr):
+    print(name)
+    index = np.arange(len(x_arr))
+    pyplot.bar(index + (bar_width * n), y_arr, bar_width, color=c, label=name)
+    first = False
 
-  curve_fit = polyreg(*data, f=f)
-
-  lines = pyplot.plot(data[0], data[1], "b-")
-  lines += pyplot.plot(t, f(t), "g--")
-  pyplot.legend(lines,
-                ["{}".format(lang), r'O($n^{%s}$)' % degree],
-                loc=2)
-  pyplot.axis([0, 1024, 0, ceil(data[1][-1])])
-  pyplot.ylabel("Average Execution Time (seconds)")
-  pyplot.xlabel("Array Size (N, for matrix of size NxN)")
-  pyplot.text(60, ceil(data[1][-1])/2, r'determination=${0:.2f}$'.format(curve_fit))
+  pyplot.xticks(x_vals[0])
+  pyplot.legend(loc=2)
+  pyplot.xlabel("Thread Count")
+  pyplot.ylabel("Total Throughput (MB/sec)")
   pyplot.savefig(outname, bbox_inches="tight")
   pyplot.close()
 
-
-def do_multi_data_plot(data_arr, lang_arr, outname):
-  line_arr = ["b-", "g--", "r:", "k-."]
-
-  y_max = max([data[1][-1] for data in data_arr])
-
-  lines = []
-  for data, linetype in zip(data_arr, line_arr):
-    lines += pyplot.plot(data[0], data[1], linetype)
-
-  pyplot.legend(lines, lang_arr, loc=2)
-  pyplot.axis([0, 1024, 0, y_max])
-  pyplot.ylabel("Average Execution Time (seconds)")
-  pyplot.xlabel("Array Size (N, for matrix of size NxN)")
-  pyplot.savefig(outname, bbox_inches="tight")
-  pyplot.close()
 
 def run_iotest(trials, iotest_args):
   results = []
@@ -119,30 +95,60 @@ def run_iotest(trials, iotest_args):
 def do_trials(args):
   # Generate all the tests we want to do.
   tests = []
-  results = {}
+  results = defaultdict(dict)
+  names = {}
 
   for mode in trials:
-    for sizes in trials[mode]['sizes']:
-      for iosizes in trials[mode]['iosizes']:
-        if args.concurrent:
-          for threads in trials[mode]['threads']:
-            tests.append([mode, sizes, iosizes, threads])
-        else:
-          tests.append([mode, sizes, iosizes, "1"])
+    if not args.concurrent:
+      trials[mode]['threads'] = ['1']
 
+    for size in trials[mode]['sizes']:
+      for iosize in trials[mode]['iosizes']:
+        test_name = "iotest {} with IO size of {}".format(mode, iosize)
+        results[test_name][size] = []
 
-  for test in tests:
-    res = run_iotest(args.trials, test)
-    test_name = " ".join(test)
-    results[test_name] = res
+        for threads in trials[mode]['threads']:
+          test = [mode, size, iosize, threads]
+          res = run_iotest(args.trials, test)
+          results[test_name][size] += [(int(threads), res)]
 
   with open(args.outfile, "w") as f:
     json.dump(results, f, sort_keys=False, indent=4, separators=(",", ": "))
 
 
-
 def do_graph(args):
-  print("GRAPH")
+  data_sets = defaultdict(dict)
+  size_regex = re.compile(r'([0-9])+([a-zA-Z])')
+
+  for f in args.files:
+    with open(f, "r") as fp:
+      data = json.load(fp)
+      for key in data:
+        data_sets[key].update(data[key])
+
+  for test_name in data_sets:
+    x_mat = []
+    y_mat = []
+    err_mat = []
+    outname = "_".join(test_name.split()) + ".png"
+    data_set = data_sets[test_name]
+    names = []
+
+    for size in sorted(data_set.keys()):
+      names.append("{} (IO/thread)".format(size))
+      points = data_set[size]
+      line_x = []
+      line_y = []
+      for x, y_arr in points:
+        line_x.append(int(x))
+        line_y.append(y_arr)
+      y_points, y_err = calc_y_vals(line_y)
+
+      x_mat.append(line_x)
+      y_mat.append(y_points)
+      err_mat.append(y_err)
+
+    do_multi_data_plot(x_mat, y_mat, err_mat, names, outname)
 
 
 def main():
@@ -151,15 +157,14 @@ def main():
   parser = argparse.ArgumentParser(
       description="Run a set of benchmarks and aggregate the results.")
 
-  parser.add_argument("-o, --output", metavar="FILE", required=True,
-                      dest="outfile",
-                      help="Destination file for command output.")
 
   subparser = parser.add_subparsers(help="sub-command help")
 
   parser_run = subparser.add_parser("run", help="run help")
   parser_run.add_argument("trials", type=int,
                           help="Number of trials to run per test")
+  parser_run.add_argument("outfile",
+                          help="Destination file for command output.")
   parser_run.add_argument("-c, --concurrent", action="store_true",
                           dest="concurrent",
                           help=("Also run multithreaded tests. Only use this "
