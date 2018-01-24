@@ -229,4 +229,14 @@ Here are some common issues and how we were able to resolve them.
    configurations are described in our paper.
 6. There are known bugs in fork.
 
+### Future Documentation ###
+
+For documentation on current work or for more detailed documentation 
+about a particular feature, please check the [docs][docs] directory.
+
+Available topics:
+- [SPDK Concurrency (for SSD operations)][spdk_doc]
+
 [Strata]: http://www.cs.utexas.edu/~yjkwon/publication/strata/ "Strata project"
+[docs]: docs/
+[spdk_doc]: docs/concurrency.md
