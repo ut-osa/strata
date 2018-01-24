@@ -1,13 +1,18 @@
 #! /usr/bin/env python
-
+# This is a script for running iobench and graphing the results from it.
+# 'run' will create/append to json files that contain the trial results from
+# running iobench. This data may not be formatted for optimal speed, but I
+# found it to be easier to read by humans (if you want to look at the
+# performance results more textually). 'graph' then takes json files and creates
+# graphs using matplotlib. The graphs under strata/docs/img were created using
+# this script.
 from __future__ import print_function
 
 import argparse
-import resource
-import gc
-from collections import defaultdict
 import json
+from collections import defaultdict
 from math import ceil
+
 import matplotlib
 matplotlib.use('Agg')
 from matplotlib import pyplot
@@ -24,17 +29,15 @@ import progressbar
 
 trials = {
     'sw': {
-      #'sizes': ['2G', '4G'],
-      'sizes': ['4G'],
-      #'iosizes': ['4K', '16K', '64K'],
+      'sizes': ['2G', '4G'],
       'iosizes': ['16K'],
       'threads': []
     }
-    #'sr': {
-    #  'sizes': ['1G'],
-    #  'iosizes': ['16K'],
-    #  'threads': []
-    #}
+    'sr': {
+      'sizes': ['1G'],
+      'iosizes': ['16K'],
+      'threads': []
+    }
   }
 
 # For a single IO amount, we have multiple throughput measurements.
@@ -197,12 +200,11 @@ def do_graph(args):
 
 
 def main():
-  # Parse arguments, have a nice help message, and generally pretend that I know
-  # how to write good software.
+  # Parse arguments, have a nice help message, etc.
   parser = argparse.ArgumentParser(
       description="Run a set of benchmarks and aggregate the results.")
 
-
+  # Sub-commands are nifty.
   subparser = parser.add_subparsers(help="sub-command help")
 
   parser_run = subparser.add_parser("run", help="run help")
