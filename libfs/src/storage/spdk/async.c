@@ -109,25 +109,26 @@ int spdk_process_completions(int read)
 	r = spdk_nvme_qpair_process_completions(qpair, 0);
 	//if not an error
 	if (r > 0) {
-		if (read)
+		if (read) {
 			async_data[0].read_issued -= r;
-		else
+    } else {
 			async_data[0].write_issued -= r;
-
-		//printf("completed %d, oustanding: %d\n", r, async_data.issued);
+    }
 	}
 #else
   int total = 0;
   // iangneal: check every qpair.
   for (int i = 0; i < ns_entry->nqpairs; ++i) {
-    pthread_mutex_lock(ns_entry->qtexs[i]);
-    r = spdk_nvme_qpair_process_completions(ns_entry->qpairs[i], 0);
-    pthread_mutex_unlock(ns_entry->qtexs[i]);
-    if (r >= 0) {
-      async_data[i].issued -= r;
-      total += r;
-    } else {
-      printf("completion error %d\n", r);
+    if (async_data[i].issued > 0) {
+      pthread_mutex_lock(ns_entry->qtexs[i]);
+      r = spdk_nvme_qpair_process_completions(ns_entry->qpairs[i], 0);
+      pthread_mutex_unlock(ns_entry->qtexs[i]);
+      if (r >= 0) {
+        async_data[i].issued -= r;
+        total += r;
+      } else {
+        printf("completion error %d\n", r);
+      }
     }
   }
   r = total;
@@ -142,7 +143,7 @@ void spdk_wait_completions(int read)
 	/* Waiting all outstanding IOs */
 #ifndef CONCURRENT
   struct spdk_nvme_qpair *qpair;
-	unsigned long nr_io_waits = 0;
+	int nr_io_waits = 0;
 	if (read) {
 		nr_io_waits = async_data[0].read_issued;
 		qpair = read_qpair;
@@ -156,10 +157,11 @@ void spdk_wait_completions(int read)
 	while (nr_io_waits != 0) {
 		int r = spdk_nvme_qpair_process_completions(qpair, 0);
 		if (r > 0) {
-			if (read)
+			if (read) {
 				async_data[0].read_issued -= r;
-			else
+      } else {
 				async_data[0].write_issued -= r;
+      }
 
 			nr_io_waits -= r;
 
@@ -234,7 +236,7 @@ int spdk_async_io_init(void)
     async_data[i].ra_issued = 0;
 #endif
 
-    ra[i].ra_buf = spdk_dma_zmalloc((2 << 20), 0x1000, NULL);
+    ra[i].ra_buf = spdk_dma_zmalloc((6 << 20), 0x1000, NULL);
 
     read_buffer_pointer[i] = 0;
     write_buffer_pointer[i] = 0;
@@ -612,14 +614,16 @@ int spdk_async_io_write(uint8_t *guest_buffer, unsigned long blockno,
 		int to_block = blockno+(i/BLOCK_SIZE);
 
 		mlfs_debug("Issuing write of %d to block %d\n", to_block, inner_blocks);
-		if(spdk_nvme_ns_cmd_write(
-					ns_entry->ns,
-					ns_entry->qpairs[idx],
-					io->buffer + i,
-					to_block, /* LBA start */
-					inner_blocks, /* number of LBAs */
-					spdk_async_io_write_callback, io, 0) != 0) {
-			fprintf(stderr, "write: starting write I/O failed\n");
+		int r = spdk_nvme_ns_cmd_write(
+            ns_entry->ns,
+            ns_entry->qpairs[idx],
+            io->buffer + i,
+            to_block, /* LBA start */
+            inner_blocks, /* number of LBAs */
+            spdk_async_io_write_callback, io, 0);
+    if (r != 0) {
+			fprintf(stderr, "write: starting write I/O failed -- %d\n", r);
+      rc = r;
 			goto end;
 		}
 		//could add all at once, but this will prevent infinite waiting in case

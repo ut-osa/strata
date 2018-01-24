@@ -59,7 +59,7 @@ ISSUE_WRITE:
 	ret = spdk_async_io_write((unsigned char *)buf, blockno, io_size,
 			            NULL, NULL);
 
-	if (ret == -1 && errno == EBUSY) {
+	if ((ret == -1 && errno == EBUSY) || ret == -ENOMEM) {
 		//while(!spdk_process_completions(0));
     spdk_wait_completions(0);
     goto ISSUE_WRITE;
