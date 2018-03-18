@@ -34,7 +34,7 @@
 SPDK_ROOT_DIR := $(abspath $(CURDIR)/../../..)
 include $(SPDK_ROOT_DIR)/mk/spdk.common.mk
 
-DIRS-y = memory pci vtophys
+DIRS-y = memory pci
 
 .PHONY: all clean $(DIRS-y)
 
