@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string-array name="partition">
+		<item>/data</item>
+		<item>/sdcard</item>
+		<item>/extSdCard</item>
+	</string-array>
+	<string-array name="iosize">
+		<item>4 KB</item>
+		<item>8 KB</item>
+		<item>16 KB</item>
+		<item>128 KB</item>
+		<item>512 KB</item>
+	</string-array>
+	<string-array name="filesyncmode">
+	    <item>Normal</item>
+	    <item>O_SYNC</item>
+	    <item>fsync</item>
+	    <item>O_DIRECT</item>
+	    <item>Sync+direct</item>
+	    <item>mmap</item>
+	    <item>mmap + MS_ASYNC</item>
+	    <item>mmap + MS_SYNC</item>
+	</string-array>
+	<string-array name="sqlsyncmode">
+	    <item>OFF</item>
+	    <item>NORMAL</item>
+	    <item>FULL</item>
+	</string-array>
+	<string-array name="journalmode">
+	    <item>DELETE</item>
+	    <item>TRUNCATE</item>
+	    <item>PERSIST</item>
+	    <item>WAL</item>
+	    <item>MEMORY</item>
+	    <item>OFF</item>
+	</string-array>
+	<string-array name="partition2">
+		<item>/data</item>
+		<item>/sdcard</item>
+	</string-array>
+</resources>

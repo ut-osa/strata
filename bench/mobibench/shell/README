@@ -1,0 +1,8 @@
+To build:
+# make
+
+To run:
+# sudo ./strata_run.sh mobibench -h
+
+Example:
+# sudo ./strata_run.sh mobibench -p /mlfs/ramdisk -d 0 -n 50000 -j 2 -t 1
