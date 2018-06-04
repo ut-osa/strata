@@ -1,0 +1,599 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+<ScrollView android:id="@+id/help"
+     
+     android:layout_height="fill_parent"
+     android:layout_width="fill_parent"
+     
+    >
+    <LinearLayout
+	    android:orientation="vertical"
+	    android:layout_width="fill_parent"
+	    android:layout_height="fill_parent"
+	    android:background="@drawable/bg_default"
+	    android:scaleType="fitXY"
+    >
+ 	   <!--
+ 	   <ImageView android:id="@+id/title_img"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:src="@drawable/title"
+            android:layout_marginTop="5dip"
+            android:scaleType="fitXY">
+       </ImageView>
+       -->
+		<RelativeLayout
+		    android:layout_width="fill_parent"
+		    android:layout_height="wrap_content" >
+
+
+		   <TextView android:id="@+id/position_1" 
+	           android:layout_width="wrap_content"
+	           android:layout_height="wrap_content"
+	           android:text="1"
+	           android:layout_centerHorizontal="true"
+	           android:visibility="invisible">
+	       </TextView>
+	           <!--
+	           android:layout_below="@id/title_img"
+	           -->
+		   	       
+	       <TextView android:id="@+id/txt_partition"
+	           android:layout_width="wrap_content"
+	           android:layout_height="40dip"
+			   android:text=" Partition"
+			   android:background="#00000000"
+			   android:textColor="#ffffff"	
+			   android:layout_below="@id/position_1"
+			   android:layout_toLeftOf="@id/position_1"
+			   android:gravity="right|center_vertical"		
+			   android:textSize="17dip"	    		    
+			/>
+	       	<Spinner
+				android:id="@+id/sp_partition"
+				android:layout_width = "wrap_content" 
+				android:layout_height="40dip"
+				android:drawSelectorOnTop = "true"
+				android:prompt="@string/sp_partition"
+				android:gravity="center"
+				android:layout_marginLeft="5dp"
+			    android:layout_below="@id/position_1"
+			    android:layout_toRightOf="@id/position_1"
+			     android:background="@drawable/btn_dropdown_a13"
+	
+			></Spinner>
+	       	
+	       	<TextView android:id="@+id/txt_thread_num"
+	       	    android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+			    android:text="Number of Threads"
+			    android:background="#00000000"
+			    android:textColor="#ffffff"		    
+			    android:layout_below="@id/txt_partition"	
+			    android:layout_alignRight="@id/txt_partition"
+			    android:layout_marginTop="3dip"			
+			    android:textSize="17dip"	    		    			    
+			/>
+   			<EditText android:id="@+id/threadnum"
+	       	    android:layout_width="wrap_content"
+	            android:layout_height="40dip"  			    
+   			    android:singleLine="true"
+   			    android:imeOptions="actionNext"
+   			    android:inputType="number"
+   			    android:selectAllOnFocus="true"
+   			    android:text="1"
+   			    android:maxLength="3"
+   			    android:layout_marginLeft="50dip"
+   			    android:gravity="right"
+   			    android:layout_toRightOf="@id/txt_thread_num"
+   			    android:layout_below="@id/sp_partition"
+   			      			  
+   			></EditText>
+     		<TextView  android:id="@+id/sizetxt"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text="(1~100)"
+   			    android:textSize="14dip"
+   			    android:textColor="#ffffff"
+   			    android:layout_toRightOf="@id/threadnum"
+   			    android:layout_alignBaseline="@id/threadnum"
+   			    
+   			></TextView>   
+   			
+     		<ImageView android:id="@+id/file_title"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:src="@drawable/file_title"
+	            android:layout_marginTop="5dip"
+	            android:scaleType="fitXY"
+	            android:layout_below="@id/threadnum"
+	            android:layout_marginLeft="10dip">
+	       </ImageView>				
+   			<TextView android:id="@+id/line_1"
+			  	android:layout_width="fill_parent"
+			  	android:layout_height="wrap_content"
+			  	android:text=""
+			  	android:background="#A9A9A9"			  	
+			  	android:textSize="2dp"
+			  	android:layout_below="@id/file_title"
+		  	></TextView>
+   			<CheckBox android:id="@+id/cb_sw"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text=" Seq. Write"
+				android:layout_marginLeft="10dip"
+				android:checked="false"
+				android:textSize="17dip"	
+				android:layout_below="@id/line_1"    		
+			></CheckBox>   			
+			<CheckBox android:id="@+id/cb_rw"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text=" Ran. Write"
+				android:textSize="17dip"
+				android:layout_marginLeft="40dip"
+				android:checked="false"
+				android:layout_toRightOf="@id/cb_sw"
+				android:layout_below="@id/line_1"    	
+			></CheckBox>
+	 		<CheckBox android:id="@+id/cb_sr"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text=" Seq. Read"
+				android:textSize="17dip"
+				android:layout_marginLeft="10dip"
+				android:checked="false"
+				android:layout_below="@id/cb_sw"	
+			></CheckBox>   			
+			<CheckBox android:id="@+id/cb_rr"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text=" Ran. Read"
+				android:textSize="17dip"				
+				android:checked="false"
+				android:layout_toRightOf="@id/cb_sr"
+				android:layout_below="@id/cb_sw"	
+				android:layout_alignLeft="@id/cb_rw"
+			></CheckBox>             
+
+		    
+     		<ImageView android:id="@+id/sqlite_title"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:src="@drawable/sqlite_title"
+	            android:layout_marginTop="15dip"
+	            android:scaleType="fitXY"
+	            android:layout_marginLeft="10dip"
+	            android:layout_below="@id/cb_sr">
+	       </ImageView>					    
+   			<TextView android:id="@+id/line_2"
+			  	android:layout_width="fill_parent"
+			  	android:layout_height="wrap_content"
+			  	android:text=""
+			  	android:background="#A9A9A9"			  	
+			  	android:textSize="2dp"
+			  	android:layout_below="@id/sqlite_title"
+		  	></TextView>		    
+			<CheckBox android:id="@+id/cb_insert"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text=" Insert"
+				android:textSize="17dip"
+				android:layout_marginLeft="10dip"
+				android:checked="false"
+				android:layout_below="@id/line_2"
+			></CheckBox>   		    
+			<CheckBox android:id="@+id/cb_update"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text=" Update"
+				android:textSize="17dip"			
+				android:checked="false"
+				android:layout_below="@id/line_2"
+				android:layout_alignLeft="@id/cb_rr"
+			></CheckBox>  
+			<CheckBox android:id="@+id/cb_delete"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:text=" Delete"
+				android:textSize="17dip"				
+				android:checked="false"
+				android:layout_below="@id/cb_insert"
+				android:layout_alignLeft="@id/cb_insert"
+			></CheckBox>   			 
+
+     		<ImageView android:id="@+id/option_title"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:src="@drawable/etc_title"
+	            android:layout_marginTop="15dip"
+	            android:scaleType="fitXY"
+	            android:layout_marginLeft="10dip"
+	            android:layout_below="@id/cb_delete">
+	       </ImageView>					    
+   			<TextView android:id="@+id/line_3"
+			  	android:layout_width="fill_parent"
+			  	android:layout_height="wrap_content"
+			  	android:text=""
+			  	android:background="#A9A9A9"			  	
+			  	android:textSize="2dp"
+			  	android:layout_below="@id/option_title"
+		  	></TextView>		
+		  		
+			<TextView android:id="@+id/fs_w"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text="● File size(W) : "
+				android:textSize="17dip"	    		
+   			    android:textColor="#ffffff"
+   			    android:layout_below="@id/line_3"
+   			    android:layout_marginLeft="15dip"
+   			    android:layout_marginTop="20dip"			
+   			></TextView>    		
+   			<EditText android:id="@+id/filesize_w"
+	       	    android:layout_width="70dip"
+	            android:layout_height="40dip"  			    
+   			    android:singleLine="true"
+   			    android:imeOptions="actionNext"
+   			    android:inputType="number"
+   			    android:selectAllOnFocus="true"
+   			    android:text="10"
+  			    android:maxLength="6"
+  			    android:layout_toRightOf="@id/fs_w"
+  			    android:layout_alignBaseline="@id/fs_w"
+  			    android:gravity="right"		
+   			></EditText>    
+ 
+		    <TextView android:id="@+id/tmp_txtmb"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text=" MB"
+   			    android:singleLine="true"
+   			    android:textSize="15dip"
+   			    android:textColor="#ffffff"
+   			    android:layout_toRightOf="@id/filesize_w"
+  				android:layout_alignBaseline="@id/filesize_w"
+   			></TextView>  	
+   			 <TextView android:id="@+id/freespace"
+   			    android:layout_width="wrap_content"
+   			    android:layout_height="wrap_content"
+   			    android:layout_toRightOf="@id/tmp_txtmb"
+   			    android:text="315MB"
+   			    android:layout_marginLeft="15dip"
+   			    android:layout_below="@id/line_3"
+   			    android:layout_alignBaseline="@id/tmp_txtmb"
+   			       			    android:textColor="#ffffff"
+   			    />			
+			
+		    <TextView  android:id="@+id/fs_r"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text="● File size(R) : "
+				android:textSize="17dip"
+   			    android:textColor="#ffffff"
+   			    android:layout_below="@id/fs_w"
+   			    android:layout_marginTop="20dip"
+   			    android:layout_alignLeft="@id/fs_w"	
+   			></TextView>     			
+	    	<EditText android:id="@+id/filesize_r"
+	       	    android:layout_width="70dip"
+	            android:layout_height="40dip"  			    
+   			    android:singleLine="true"
+   			    android:imeOptions="actionNext"
+   			    android:inputType="number"
+   			    android:selectAllOnFocus="true"
+   			    android:text="256"
+  			    android:maxLength="6"
+  			    android:layout_toRightOf="@id/fs_r"
+  			    android:layout_alignBaseline="@id/fs_r"
+  			    android:layout_alignLeft="@id/filesize_w"
+  			    android:gravity="right"		
+   			></EditText>   		
+
+		    <TextView 
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text=" MB"
+   			    android:singleLine="true"
+   			    android:textSize="15dip"
+   			    android:textColor="#ffffff"
+   			    android:layout_toRightOf="@id/filesize_r"
+  				android:layout_alignBaseline="@id/filesize_r"
+   			></TextView>  			
+			
+		    <TextView android:id="@+id/io"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text="● IO size : "
+				android:textSize="17dip"
+   			    android:textColor="#ffffff"
+   			    android:layout_below="@id/fs_r"
+   			    android:layout_marginTop="20dip"
+   			    android:layout_alignLeft="@id/fs_r"	
+   			></TextView>  
+   			<Spinner
+				android:id="@+id/sp_io_size"
+				android:layout_width = "wrap_content" 
+				android:layout_height="40dip"
+				android:drawSelectorOnTop = "true"
+				android:prompt="@string/sp_io_size"
+				android:layout_below="@id/fs_r"
+				android:gravity="center"  				
+			    android:background="@drawable/btn_dropdown_a13"			   
+			    android:layout_toRightOf="@id/io"
+			    android:layout_marginTop="17dip"
+			></Spinner>	   					
+   				
+		    <TextView android:id="@+id/file_mode_txt"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text="● Mode (File IO) : "
+				android:textSize="17dip"
+   			    android:textColor="#ffffff"
+   			    android:layout_below="@id/io"
+   			    android:layout_marginTop="23dip"
+   			    android:layout_alignLeft="@id/io"									
+   			></TextView>    			
+			<Spinner
+				android:id="@+id/sp_file_sync"
+				android:layout_width = "wrap_content" 
+				android:layout_height="40dip"
+				android:drawSelectorOnTop = "true"
+				android:prompt="@string/sp_file_sync"
+				android:layout_below="@id/io"
+				android:gravity="center"  				
+			    android:background="@drawable/btn_dropdown_a13"			   
+			    android:layout_toRightOf="@id/file_mode_txt"
+			    android:layout_marginTop="17dip"
+			></Spinner>			
+			
+		    <TextView android:id="@+id/tran_txt"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text="● Transaction (SQLite) : "
+				android:textSize="17dip"
+   			    android:textColor="#ffffff"
+   			    android:layout_below="@id/file_mode_txt"
+   			    android:layout_marginTop="25dip"
+   			    android:layout_alignLeft="@id/file_mode_txt"		
+   			></TextView>    
+	    	<EditText android:id="@+id/transcation"
+	       	    android:layout_width="70dip"
+	            android:layout_height="40dip"  			    
+   			    android:singleLine="true"
+   			    android:imeOptions="actionNext"
+   			    android:inputType="number"
+   			    android:selectAllOnFocus="true"
+   			    android:text="100"
+  			    android:maxLength="5"	 
+				android:gravity="right" 
+				android:layout_toRightOf="@id/tran_txt"
+  			    android:layout_alignBaseline="@id/tran_txt"  	
+   			></EditText>  			
+		    <TextView android:id="@+id/txt_tra"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text="(1~10000)  "
+   			    android:singleLine="true"
+   			    android:textSize="12dip"
+   			    android:textColor="#ffffff"
+				android:gravity="right"
+   			    android:layout_toRightOf="@id/transcation"
+  				android:layout_alignBaseline="@id/transcation"
+   			></TextView>  			
+			
+		    <TextView android:id="@+id/txt_sql_sync"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text="● Mode (SQLite) : "
+				android:textSize="17dip"
+   			    android:textColor="#ffffff"
+   			    android:layout_below="@id/tran_txt"
+   			    android:layout_marginTop="20dip"
+   			    android:layout_alignLeft="@id/tran_txt"		
+   			></TextView>   				
+			<Spinner
+				android:id="@+id/sp_sql_sync"
+				android:layout_width = "wrap_content" 
+				android:layout_height="40dip"
+				android:drawSelectorOnTop = "true"
+				android:prompt="@string/sp_sql_sync"
+			    android:background="@drawable/btn_dropdown_a13"		
+			    android:layout_marginTop="17dip"
+			    android:layout_toRightOf="@id/txt_sql_sync"
+				android:layout_below="@id/tran_txt" 	    
+				android:gravity="center"  	
+			></Spinner>			
+			
+		    <TextView android:id="@+id/jour_txt"
+     		    android:layout_width="wrap_content"
+     		    android:layout_height="wrap_content"    			    
+   			    android:text="● Journal (SQLite) : "
+ 				android:textSize="17dip"
+   			    android:textColor="#ffffff"
+   			    android:layout_below="@id/txt_sql_sync"
+   			    android:layout_marginTop="20dip"
+   			    android:layout_alignLeft="@id/txt_sql_sync"		
+   			></TextView>   				
+			
+			<Spinner
+				android:id="@+id/sp_journal"
+				android:layout_width = "wrap_content" 
+				android:layout_height="40dip"
+				android:drawSelectorOnTop = "true"
+				android:prompt="@string/sp_journal"
+			    android:background="@drawable/btn_dropdown_a13"		
+			    android:layout_marginTop="17dip" 	  
+			    android:layout_toRightOf="@id/jour_txt"
+				android:layout_below="@id/txt_sql_sync" 	
+				android:gravity="center"  	   
+			></Spinner>		    
+		</RelativeLayout> 
+			<ImageButton android:id="@+id/btn_execute"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:src="@drawable/ibtn_execute"		
+				android:scaleType="fitXY"
+				android:padding="0dp"
+				android:background="#00000000"
+				android:adjustViewBounds="true"	
+				android:layout_marginTop="25dip"
+				
+				android:layout_gravity="center_horizontal"			
+			></ImageButton>
+     		<ImageView 
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:src="@drawable/last_title"
+	            android:scaleType="fitXY"            
+	            android:layout_gravity="right">
+	       </ImageView>	
+		</LinearLayout>
+    </ScrollView>
+
+
+    
+    <FrameLayout android:id="@+id/history"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
+
+        <ImageView
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:src="@drawable/bg_default"
+            android:scaleType="fitXY"
+           >
+        </ImageView>
+
+        <ListView                                    
+			android:id="@+id/ListView01" 
+			android:layout_height="fill_parent" 
+			android:layout_width="fill_parent"
+			android:scrollingCache="false">            
+        </ListView>
+      
+    </FrameLayout>
+    
+    <FrameLayout android:id="@+id/measure"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent">
+        <ImageView
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:src="@drawable/bg_measure"
+            android:scaleType="fitXY">
+        </ImageView>
+		<RelativeLayout
+		    android:layout_width="fill_parent"
+		    android:layout_height="fill_parent" >
+
+
+   	       <ImageView android:id="@+id/position_mea" 
+	           android:layout_width="wrap_content"
+	           android:layout_height="wrap_content"
+	           android:layout_centerHorizontal="true"
+	           android:layout_centerVertical="true"
+	            android:src="@drawable/bg_mea_middle06"
+	            android:scaleType="fitXY"
+	          ></ImageView>
+	       
+   	       	<ImageButton android:id="@+id/btn_all"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:src="@drawable/ibtn_all"		
+				android:scaleType="fitXY"
+				android:padding="0dp"
+				android:background="#00000000"
+				android:adjustViewBounds="true"
+				android:layout_above="@id/position_mea"
+	            android:layout_centerHorizontal="true"
+	            android:layout_marginBottom="15dip"
+			></ImageButton>
+     	    <ImageButton android:id="@+id/btn_file"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:src="@drawable/ibtn_file"		
+				android:scaleType="fitXY"
+				android:padding="0dp"
+				android:background="#00000000"
+				android:adjustViewBounds="true"
+				android:layout_toRightOf="@id/position_mea"
+				android:layout_centerVertical="true"
+				android:layout_marginLeft="15dip"
+			></ImageButton> 	       
+   	       	<ImageButton android:id="@+id/btn_sqlite"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:src="@drawable/ibtn_sqlite"		
+				android:scaleType="fitXY"
+				android:padding="0dp"
+				android:background="#00000000"
+				android:adjustViewBounds="true"
+				android:layout_centerVertical="true"
+				android:layout_toLeftOf="@id/position_mea"
+				android:layout_marginRight="15dip"	
+			></ImageButton>   	       
+   	       	<ImageButton android:id="@+id/btn_custom"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:src="@drawable/ibtn_custom"		
+				android:scaleType="fitXY"
+				android:padding="0dp"
+				android:background="#00000000"
+				android:adjustViewBounds="true"
+				android:layout_below="@id/position_mea"
+				android:layout_centerHorizontal="true"
+				android:layout_marginTop="15dip"
+			></ImageButton>  
+			<TextView android:id="@+id/txt_p"
+			    android:layout_width="wrap_content"
+			    android:layout_height="wrap_content"
+			    android:text="Progress"
+			    android:layout_below="@id/btn_custom"
+			    android:layout_alignLeft="@id/btn_sqlite"
+			    android:layout_marginTop="10dip"
+			    android:textColor="#ffffff">
+			</TextView> 	   	       
+
+		   	<ProgressBar
+		   	    android:id="@+id/progress"
+		   	    style="?android:attr/progressBarStyleHorizontal"
+		   	    android:layout_width="wrap_content"
+		   	    android:layout_height="20dip"
+		   	    android:layout_alignLeft="@id/btn_sqlite"
+		   	    android:layout_alignRight="@id/btn_file"
+		   	    android:layout_below="@id/txt_p"
+		   	    android:indeterminate="false"
+		   	    android:max="100"
+		   	    android:progress="0"
+		   	    android:progressDrawable="@drawable/progressbar_custom" >
+
+		  	</ProgressBar>
+
+		  	<TextView
+		  	    android:id="@+id/progress_text"
+		  	    android:layout_width="wrap_content"
+		  	    android:layout_height="wrap_content"
+		  	    android:layout_alignRight="@id/progress"
+		  	    android:layout_marginRight="5dip"
+		  	    android:layout_below="@id/txt_p"
+		  	    android:textColor="#ffffff" >
+
+			</TextView> 
+			
+		  	<TextView
+		  	    android:id="@+id/progress_per"
+		  	    android:layout_width="wrap_content"
+		  	    android:layout_height="wrap_content"
+		  	    android:layout_alignLeft="@+id/progress"
+		  	    android:layout_alignRight="@+id/txt_p"
+		  	    android:layout_below="@id/progress"
+		  	    android:textColor="#ffffff" >
+
+			</TextView>
+	    </RelativeLayout>
+    </FrameLayout>
+
+</FrameLayout>

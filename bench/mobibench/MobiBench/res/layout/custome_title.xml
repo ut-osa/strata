@@ -1,0 +1,43 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/relativeLayout1"
+    android:layout_width="fill_parent"
+    android:layout_height="50dp"
+    android:background="#0100FF" >
+ 
+    <ImageButton     android:id="@+id/ibtn_share"
+	    android:layout_centerVertical="true"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content"
+	    android:src="@drawable/ibtn_share"	    
+	    android:layout_alignParentRight="true"
+   		android:scaleType="fitXY"
+		android:padding="0dp"
+		android:background="#00000000"
+		android:adjustViewBounds="true"
+	    android:layout_marginRight="7dp"  >
+    </ImageButton>
+    <ImageButton     android:id="@+id/ibtn_save"
+	    android:layout_centerVertical="true"
+	    android:layout_width="wrap_content"
+	    android:layout_height="wrap_content"
+	    android:src="@drawable/ibtn_send_h"	    
+	    android:layout_toLeftOf="@id/ibtn_share"
+	    
+   		android:scaleType="fitXY"
+		android:padding="0dp"
+		android:background="#00000000"
+		android:adjustViewBounds="true"
+	    android:layout_marginRight="7dp"  >
+    </ImageButton>
+
+    <ImageView
+
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/result_title"
+        android:layout_alignParentLeft="true"
+        android:layout_centerVertical="true"
+        android:layout_marginLeft="20dp"
+       
+        ></ImageView>
+</RelativeLayout>

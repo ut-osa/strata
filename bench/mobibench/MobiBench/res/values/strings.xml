@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="hello">Hello World, MobiBench!</string>
+    <string name="app_name">MobiBench</string>
+    <string name="sp_partition">Partition</string>
+    <string name="sp_file_sync">File Sync Mode</string>
+    <string name="sp_sql_sync">File Sql Mode</string>
+    <string name="sp_journal">File Journal Mode</string>
+    <string name="sp_io_size">IO Size</string>
+
+</resources>
