@@ -1,0 +1,323 @@
+Filebench Version 1.5-alpha3
+0.000: Allocated 173MB of shared memory
+0.001:   File-server Version 3.0 personality
+0.001:     $dir=lvm_cache
+0.001:     $nfiles=1000
+0.001:     $meandirwidth=20
+0.001:     $meanfilesize=1048576
+0.001:     $nthreads=1
+0.001:     $meaniosize=1048576
+0.001:     $meanappendsize=1048576
+0.001:     $runtime=500
+0.001: Populating and pre-allocating filesets
+0.002: bigfileset populated: 1000 files, avg. dir. width = 20, avg. dir. depth = 2.3, 0 leafdirs, 1000.000MB total size
+0.002: Removing bigfileset tree (if exists)
+1.321: Pre-allocating directories in bigfileset tree
+1.322: Pre-allocating files in bigfileset tree
+1.607: Waiting for pre-allocation to finish (in case of a parallel pre-allocation)
+1.607: Population and pre-allocation of filesets completed
+1.607: Starting 1 filereader instances
+2.608: Running...
+7.608: IO Summary: 60589 ops 12116.988 ops/s 1102/2203 rd/wr 2756.1mb/s   0.3ms/op
+
+
+12.609: IO Summary: 122426 ops 12241.760 ops/s 1113/2226 rd/wr 2782.8mb/s   0.3ms/op
+
+
+17.609: IO Summary: 172786 ops 11518.283 ops/s 1047/2094 rd/wr 2620.4mb/s   0.3ms/op
+
+
+22.609: IO Summary: 234689 ops 11733.659 ops/s 1067/2133 rd/wr 2670.1mb/s   0.3ms/op
+
+
+27.610: IO Summary: 295654 ops 11825.357 ops/s 1075/2150 rd/wr 2689.4mb/s   0.3ms/op
+
+
+32.610: IO Summary: 355106 ops 11836.062 ops/s 1076/2152 rd/wr 2691.2mb/s   0.3ms/op
+
+
+37.611: IO Summary: 414734 ops 11848.731 ops/s 1077/2154 rd/wr 2693.7mb/s   0.3ms/op
+
+
+42.611: IO Summary: 473573 ops 11838.514 ops/s 1076/2152 rd/wr 2691.0mb/s   0.3ms/op
+
+
+47.611: IO Summary: 531274 ops 11805.278 ops/s 1073/2146 rd/wr 2683.8mb/s   0.3ms/op
+
+
+52.612: IO Summary: 590415 ops 11807.489 ops/s 1073/2147 rd/wr 2684.6mb/s   0.3ms/op
+
+
+57.612: IO Summary: 647901 ops 11779.206 ops/s 1071/2142 rd/wr 2678.4mb/s   0.3ms/op
+
+
+62.612: IO Summary: 707604 ops 11792.590 ops/s 1072/2144 rd/wr 2681.9mb/s   0.3ms/op
+
+
+67.613: IO Summary: 765112 ops 11770.146 ops/s 1070/2140 rd/wr 2676.4mb/s   0.3ms/op
+
+
+72.613: IO Summary: 819754 ops 11709.971 ops/s 1065/2129 rd/wr 2662.8mb/s   0.3ms/op
+
+
+77.613: IO Summary: 864549 ops 11526.536 ops/s 1048/2096 rd/wr 2620.7mb/s   0.3ms/op
+
+
+82.614: IO Summary: 922277 ops 11527.684 ops/s 1048/2096 rd/wr 2620.7mb/s   0.3ms/op
+
+
+87.614: IO Summary: 969773 ops 11408.324 ops/s 1037/2074 rd/wr 2593.2mb/s   0.3ms/op
+
+
+92.614: IO Summary: 1010808 ops 11230.441 ops/s 1021/2042 rd/wr 2552.8mb/s   0.3ms/op
+
+
+97.615: IO Summary: 1071448 ops 11277.634 ops/s 1025/2050 rd/wr 2563.0mb/s   0.3ms/op
+
+
+102.615: IO Summary: 1128997 ops 11289.201 ops/s 1026/2053 rd/wr 2565.4mb/s   0.3ms/op
+
+
+107.615: IO Summary: 1188466 ops 11317.953 ops/s 1029/2058 rd/wr 2572.1mb/s   0.3ms/op
+
+
+112.616: IO Summary: 1249697 ops 11360.109 ops/s 1033/2065 rd/wr 2582.0mb/s   0.3ms/op
+
+
+117.616: IO Summary: 1311941 ops 11407.407 ops/s 1037/2074 rd/wr 2592.9mb/s   0.3ms/op
+
+
+122.616: IO Summary: 1371514 ops 11428.507 ops/s 1039/2078 rd/wr 2597.8mb/s   0.3ms/op
+
+
+127.617: IO Summary: 1430403 ops 11442.446 ops/s 1040/2080 rd/wr 2600.9mb/s   0.3ms/op
+
+
+132.617: IO Summary: 1488840 ops 11451.835 ops/s 1041/2082 rd/wr 2603.2mb/s   0.3ms/op
+
+
+137.617: IO Summary: 1547756 ops 11464.078 ops/s 1042/2084 rd/wr 2605.9mb/s   0.3ms/op
+
+
+142.618: IO Summary: 1603353 ops 11451.742 ops/s 1041/2082 rd/wr 2602.9mb/s   0.3ms/op
+
+
+147.618: IO Summary: 1646869 ops 11356.946 ops/s 1032/2065 rd/wr 2581.3mb/s   0.3ms/op
+
+
+152.618: IO Summary: 1701041 ops 11339.505 ops/s 1031/2062 rd/wr 2577.3mb/s   0.3ms/op
+
+
+157.619: IO Summary: 1758810 ops 11346.394 ops/s 1031/2063 rd/wr 2579.1mb/s   0.3ms/op
+
+
+162.619: IO Summary: 1816717 ops 11353.712 ops/s 1032/2064 rd/wr 2581.0mb/s   0.3ms/op
+
+
+167.619: IO Summary: 1876257 ops 11370.485 ops/s 1034/2067 rd/wr 2584.8mb/s   0.3ms/op
+
+
+172.620: IO Summary: 1925323 ops 11324.663 ops/s 1030/2059 rd/wr 2574.5mb/s   0.3ms/op
+
+
+177.620: IO Summary: 1983026 ops 11330.810 ops/s 1030/2060 rd/wr 2576.1mb/s   0.3ms/op
+
+
+182.620: IO Summary: 2044442 ops 11357.240 ops/s 1032/2065 rd/wr 2581.7mb/s   0.3ms/op
+
+
+187.621: IO Summary: 2103053 ops 11367.081 ops/s 1033/2067 rd/wr 2583.9mb/s   0.3ms/op
+
+
+192.621: IO Summary: 2159397 ops 11364.473 ops/s 1033/2066 rd/wr 2583.2mb/s   0.3ms/op
+
+
+197.621: IO Summary: 2218748 ops 11377.420 ops/s 1034/2069 rd/wr 2586.2mb/s   0.3ms/op
+
+
+202.622: IO Summary: 2278054 ops 11389.493 ops/s 1035/2071 rd/wr 2588.7mb/s   0.3ms/op
+
+
+207.622: IO Summary: 2337760 ops 11402.929 ops/s 1037/2073 rd/wr 2591.9mb/s   0.3ms/op
+
+
+212.622: IO Summary: 2395933 ops 11408.425 ops/s 1037/2074 rd/wr 2593.1mb/s   0.3ms/op
+
+
+217.623: IO Summary: 2455358 ops 11419.488 ops/s 1038/2076 rd/wr 2595.6mb/s   0.3ms/op
+
+
+222.623: IO Summary: 2512962 ops 11421.771 ops/s 1038/2077 rd/wr 2596.1mb/s   0.3ms/op
+
+
+227.624: IO Summary: 2572904 ops 11434.345 ops/s 1039/2079 rd/wr 2598.9mb/s   0.3ms/op
+
+
+232.624: IO Summary: 2620132 ops 11391.098 ops/s 1036/2071 rd/wr 2589.1mb/s   0.3ms/op
+
+
+237.624: IO Summary: 2680360 ops 11405.008 ops/s 1037/2074 rd/wr 2592.3mb/s   0.3ms/op
+
+
+242.624: IO Summary: 2738688 ops 11410.421 ops/s 1037/2075 rd/wr 2593.3mb/s   0.3ms/op
+
+
+247.625: IO Summary: 2796704 ops 11414.341 ops/s 1038/2075 rd/wr 2594.2mb/s   0.3ms/op
+
+
+252.625: IO Summary: 2843919 ops 11374.901 ops/s 1034/2068 rd/wr 2585.2mb/s   0.3ms/op
+
+
+257.626: IO Summary: 2903304 ops 11384.728 ops/s 1035/2070 rd/wr 2587.5mb/s   0.3ms/op
+
+
+262.626: IO Summary: 2950512 ops 11347.348 ops/s 1032/2063 rd/wr 2578.9mb/s   0.3ms/op
+
+
+267.626: IO Summary: 3006598 ops 11344.878 ops/s 1031/2063 rd/wr 2578.3mb/s   0.3ms/op
+
+
+272.627: IO Summary: 3066413 ops 11356.310 ops/s 1032/2065 rd/wr 2581.1mb/s   0.3ms/op
+
+
+277.627: IO Summary: 3114046 ops 11323.031 ops/s 1029/2059 rd/wr 2573.5mb/s   0.3ms/op
+
+
+282.627: IO Summary: 3174378 ops 11336.291 ops/s 1031/2061 rd/wr 2576.5mb/s   0.3ms/op
+
+
+287.628: IO Summary: 3234315 ops 11347.699 ops/s 1032/2063 rd/wr 2579.3mb/s   0.3ms/op
+
+
+292.628: IO Summary: 3293401 ops 11355.780 ops/s 1032/2065 rd/wr 2581.2mb/s   0.3ms/op
+
+
+297.628: IO Summary: 3352199 ops 11362.611 ops/s 1033/2066 rd/wr 2582.6mb/s   0.3ms/op
+
+
+302.629: IO Summary: 3410287 ops 11366.849 ops/s 1033/2067 rd/wr 2583.5mb/s   0.3ms/op
+
+
+307.629: IO Summary: 3470199 ops 11376.928 ops/s 1034/2069 rd/wr 2585.8mb/s   0.3ms/op
+
+
+312.629: IO Summary: 3530281 ops 11387.228 ops/s 1035/2070 rd/wr 2588.2mb/s   0.3ms/op
+
+
+317.630: IO Summary: 3588674 ops 11391.841 ops/s 1036/2071 rd/wr 2589.2mb/s   0.3ms/op
+
+
+322.630: IO Summary: 3648038 ops 11399.344 ops/s 1036/2073 rd/wr 2590.8mb/s   0.3ms/op
+
+
+327.630: IO Summary: 3706256 ops 11403.089 ops/s 1037/2073 rd/wr 2591.7mb/s   0.3ms/op
+
+
+332.631: IO Summary: 3766420 ops 11412.618 ops/s 1038/2075 rd/wr 2593.8mb/s   0.3ms/op
+
+
+337.631: IO Summary: 3826329 ops 11421.101 ops/s 1038/2077 rd/wr 2595.7mb/s   0.3ms/op
+
+
+342.631: IO Summary: 3883980 ops 11422.695 ops/s 1038/2077 rd/wr 2596.2mb/s   0.3ms/op
+
+
+347.632: IO Summary: 3938884 ops 11416.280 ops/s 1038/2076 rd/wr 2594.7mb/s   0.3ms/op
+
+
+352.632: IO Summary: 3998386 ops 11423.184 ops/s 1038/2077 rd/wr 2596.2mb/s   0.3ms/op
+
+
+357.632: IO Summary: 4058591 ops 11431.874 ops/s 1039/2079 rd/wr 2598.1mb/s   0.3ms/op
+
+
+362.633: IO Summary: 4118632 ops 11439.868 ops/s 1040/2080 rd/wr 2599.8mb/s   0.3ms/op
+
+
+367.633: IO Summary: 4178676 ops 11447.651 ops/s 1041/2081 rd/wr 2601.6mb/s   0.3ms/op
+
+
+372.633: IO Summary: 4238939 ops 11455.815 ops/s 1041/2083 rd/wr 2603.5mb/s   0.3ms/op
+
+
+377.634: IO Summary: 4297088 ops 11458.123 ops/s 1042/2083 rd/wr 2603.9mb/s   0.3ms/op
+
+
+382.634: IO Summary: 4355822 ops 11461.911 ops/s 1042/2084 rd/wr 2604.8mb/s   0.3ms/op
+
+
+387.634: IO Summary: 4403744 ops 11437.519 ops/s 1040/2080 rd/wr 2599.3mb/s   0.3ms/op
+
+
+392.635: IO Summary: 4461975 ops 11440.185 ops/s 1040/2080 rd/wr 2600.0mb/s   0.3ms/op
+
+
+397.635: IO Summary: 4519376 ops 11440.682 ops/s 1040/2080 rd/wr 2600.3mb/s   0.3ms/op
+
+
+402.635: IO Summary: 4575560 ops 11438.123 ops/s 1040/2080 rd/wr 2599.7mb/s   0.3ms/op
+
+
+407.636: IO Summary: 4635742 ops 11445.499 ops/s 1040/2081 rd/wr 2601.2mb/s   0.3ms/op
+
+
+412.636: IO Summary: 4694895 ops 11450.186 ops/s 1041/2082 rd/wr 2602.3mb/s   0.3ms/op
+
+
+417.636: IO Summary: 4753079 ops 11452.425 ops/s 1041/2082 rd/wr 2602.9mb/s   0.3ms/op
+
+
+422.637: IO Summary: 4812196 ops 11456.832 ops/s 1042/2083 rd/wr 2603.8mb/s   0.3ms/op
+
+
+427.637: IO Summary: 4872055 ops 11462.881 ops/s 1042/2084 rd/wr 2605.1mb/s   0.3ms/op
+
+
+432.637: IO Summary: 4928224 ops 11460.208 ops/s 1042/2084 rd/wr 2604.4mb/s   0.3ms/op
+
+
+437.638: IO Summary: 4988149 ops 11466.231 ops/s 1042/2085 rd/wr 2605.9mb/s   0.3ms/op
+
+
+442.638: IO Summary: 5036615 ops 11446.075 ops/s 1041/2081 rd/wr 2601.2mb/s   0.3ms/op
+
+
+447.638: IO Summary: 5096345 ops 11451.684 ops/s 1041/2082 rd/wr 2602.5mb/s   0.3ms/op
+
+
+452.639: IO Summary: 5157153 ops 11459.563 ops/s 1042/2084 rd/wr 2604.2mb/s   0.3ms/op
+
+
+457.639: IO Summary: 5215266 ops 11461.346 ops/s 1042/2084 rd/wr 2604.7mb/s   0.3ms/op
+
+
+462.639: IO Summary: 5273841 ops 11464.095 ops/s 1042/2084 rd/wr 2605.3mb/s   0.3ms/op
+
+
+467.640: IO Summary: 5331878 ops 11465.628 ops/s 1042/2085 rd/wr 2605.6mb/s   0.3ms/op
+
+
+472.640: IO Summary: 5379174 ops 11444.276 ops/s 1040/2081 rd/wr 2600.7mb/s   0.3ms/op
+
+
+477.640: IO Summary: 5439215 ops 11450.204 ops/s 1041/2082 rd/wr 2602.0mb/s   0.3ms/op
+
+
+482.641: IO Summary: 5498076 ops 11453.551 ops/s 1041/2082 rd/wr 2602.8mb/s   0.3ms/op
+
+
+487.641: IO Summary: 5556552 ops 11456.035 ops/s 1041/2083 rd/wr 2603.4mb/s   0.3ms/op
+
+
+492.641: IO Summary: 5615963 ops 11460.375 ops/s 1042/2084 rd/wr 2604.4mb/s   0.3ms/op
+
+
+497.642: IO Summary: 5675341 ops 11464.561 ops/s 1042/2084 rd/wr 2605.3mb/s   0.3ms/op
+
+
+502.642: IO Summary: 5734648 ops 11468.522 ops/s 1043/2085 rd/wr 2606.2mb/s   0.3ms/op
+
+
+502.642: Run took 500 seconds...
+502.642: IO Summary: 5734648 ops 11468.521 ops/s 1043/2085 rd/wr 2606.2mb/s   0.3ms/op
+502.642: Shutting down processes

@@ -1,0 +1,121 @@
+diff --git a/bench/filebench/fileset.c b/bench/filebench/fileset.c
+index 13152b5..2fd4e7c 100644
+--- a/bench/filebench/fileset.c
++++ b/bench/filebench/fileset.c
+@@ -1478,6 +1478,7 @@ fileset_populate_subdir(fileset_t *fileset, filesetentry_t *parent,
+ 	entry->fse_fileset = fileset;
+ 	fileset_insdirlist(fileset, entry);
+ 
++#if 0
+ 	if (fileset->fs_dirdepthrv) {
+ 		randepth = (int)avd_get_int(fileset->fs_dirdepthrv);
+ 	} else {
+@@ -1492,7 +1493,11 @@ fileset_populate_subdir(fileset_t *fileset, filesetentry_t *parent,
+ 			randepth = (int)fileset->fs_meandepth;
+ 		}
+ 	}
++#else
++	randepth = 4;
++#endif
+ 
++#if 0
+ 	if (fileset->fs_meanwidth == -1) {
+ 		ranwidth = avd_get_dbl(fileset->fs_dirwidth);
+ 	} else {
+@@ -1507,6 +1512,9 @@ fileset_populate_subdir(fileset_t *fileset, filesetentry_t *parent,
+ 			ranwidth = fileset->fs_meanwidth;
+ 		}
+ 	}
++#else
++	ranwidth = fileset->fs_meanwidth;
++#endif
+ 
+ 	if (randepth == 0)
+ 		randepth = 1;
+@@ -1621,6 +1629,7 @@ fileset_populate(fileset_t *fileset)
+ 	avl_create(&(fileset->fs_dirs), fileset_entry_compare,
+ 	    sizeof (filesetentry_t), FSE_OFFSETOF(fse_link));
+ 
++#if 0
+ 	/* is dirwidth a random variable? */
+ 	if (AVD_IS_RANDOM(fileset->fs_dirwidth)) {
+ 		meandirwidth =
+@@ -1630,6 +1639,10 @@ fileset_populate(fileset_t *fileset)
+ 		meandirwidth = (int)avd_get_int(fileset->fs_dirwidth);
+ 		fileset->fs_meanwidth = (double)meandirwidth;
+ 	}
++#else
++	meandirwidth = (int)avd_get_int(fileset->fs_dirwidth);
++	fileset->fs_meanwidth = (double)meandirwidth;
++#endif
+ 
+ 	/*
+ 	 * Input params are:
+diff --git a/bench/filebench/parser_gram.c b/bench/filebench/parser_gram.c
+index 4c7be2c..d884868 100644
+--- a/bench/filebench/parser_gram.c
++++ b/bench/filebench/parser_gram.c
+@@ -5122,7 +5122,7 @@ parser_run(cmd_t *cmd)
+ 	parser_fileset_create(cmd);
+ 
+ 	if (mlfs) {
+-		make_digest_request_async(100);
++		while(make_digest_request_async(100) == -EBUSY);
+ 		wait_on_digesting();
+ 	}
+ 
+@@ -5176,6 +5176,11 @@ parser_psrun(cmd_t *cmd)
+ 	parser_fileset_create(cmd);
+ 	proc_create();
+ 
++	if (mlfs) {
++		while(make_digest_request_async(100) == -EBUSY);
++		wait_on_digesting();
++	}
++
+ 	/* check for startup errors */
+ 	if (filebench_shm->shm_f_abort)
+ 		return;
+@@ -5236,7 +5241,7 @@ parser_run_variable(cmd_t *cmd)
+ 	parser_fileset_create(cmd);
+ 
+ 	if (mlfs) {
+-		make_digest_request_async(100);
++	  while(make_digest_request_async(100) == -EBUSY);
+ 		wait_on_digesting();
+ 	}
+ 
+diff --git a/bench/filebench/parser_gram.y b/bench/filebench/parser_gram.y
+index cfecae9..74cc473 100644
+--- a/bench/filebench/parser_gram.y
++++ b/bench/filebench/parser_gram.y
+@@ -2599,7 +2599,7 @@ parser_run(cmd_t *cmd)
+ 	parser_fileset_create(cmd);
+ 
+ 	if (mlfs) {
+-		make_digest_request_async(100);
++		while(make_digest_request_async(100) == -EBUSY);
+ 		wait_on_digesting();
+ 	}
+ 
+@@ -2653,6 +2653,11 @@ parser_psrun(cmd_t *cmd)
+ 	parser_fileset_create(cmd);
+ 	proc_create();
+ 
++	if (mlfs) {
++		while(make_digest_request_async(100) == -EBUSY);
++		wait_on_digesting();
++	}
++
+ 	/* check for startup errors */
+ 	if (filebench_shm->shm_f_abort)
+ 		return;
+@@ -2713,7 +2718,7 @@ parser_run_variable(cmd_t *cmd)
+ 	parser_fileset_create(cmd);
+ 
+ 	if (mlfs) {
+-		make_digest_request_async(100);
++	  while(make_digest_request_async(100) == -EBUSY);
+ 		wait_on_digesting();
+ 	}
+ 
