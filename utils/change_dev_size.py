@@ -27,10 +27,10 @@ def main():
     print("Error: Cannot find {}".format(storage_h))
     return -1
 
-  dax0 = int(sys.argv[1]) * GB
-  ssd =  int(sys.argv[2]) * GB
-  hdd =  int(sys.argv[3]) * GB
-  dax1 = int(sys.argv[4]) * GB
+  dax0 = int(sys.argv[1] * GB)
+  ssd =  int(sys.argv[2] * GB)
+  hdd =  int(sys.argv[3] * GB)
+  dax1 = int(sys.argv[4] * GB)
 
   f_contents = str()
   with open(storage_h, "r+b") as f:
