@@ -1,0 +1,8 @@
+--recurse=yes
+--exclude=.git
+--exclude=kernel/*
+--exclude=bench/*
+--exclude=utils/*
+--exclude=*.o
+--exclude=*.so*
+--exclude=libfs/lib/*

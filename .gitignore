@@ -17,3 +17,7 @@ libfs/lib/jemalloc-4.5.0
 
 # Misc
 .vscode/
+compile_commands.json
+tags
+*.swp
+
