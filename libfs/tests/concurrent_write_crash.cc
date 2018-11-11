@@ -18,6 +18,7 @@
 #include <sys/types.h>
 #include <assert.h>
 #include <sys/time.h>
+#include <sys/wait.h>
 
 #include <unordered_map>
 #include <vector>
