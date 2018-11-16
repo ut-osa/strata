@@ -18,6 +18,10 @@ libfs/lib/jemalloc-4.5.0
 compile_commands.json
 tags
 *.swp
+.projectile
+GPATH
+GRTAGS
+GTAGS
 *.lo
 *.o
 *.la
