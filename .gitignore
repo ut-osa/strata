@@ -24,3 +24,7 @@ tags
 GPATH
 GRTAGS
 GTAGS
+*.lo
+*.o
+*.la
+bench/filebench/.deps/*
