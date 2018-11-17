@@ -1208,6 +1208,13 @@ do_io_unaligned:
 		g_perf_stats.read_data_nr++;
 	}
 
+	mlfs_get_time(&current_time);
+	if (timercmp(&current_time, expiration_time, >) == 0)
+	{
+		// We release the read lease if we finish our work before the expiration_time
+		release_read_lease(ip->inum);
+	}
+
 	return io_size;
 }
 
