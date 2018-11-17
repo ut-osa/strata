@@ -145,6 +145,9 @@ ssize_t mlfs_file_read(struct file *f, uint8_t *buf, size_t n)
 			return 0;
 		}
 
+		// TODO: we revoke lease when 
+		// 1. the timeout or
+		// 2. there is a write lease request pending
 		r = readi(f->ip, buf, f->off, n);
 
 		if (r < 0) 

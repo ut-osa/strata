@@ -1043,7 +1043,7 @@ int check_log_invalidation(struct fcache_block *_fcache_block)
 	return ret;
 }
 
-int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
+int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size, mlfs_time_t* expiration_time)
 {
 	int io_done = 0, ret;
 	offset_t key, off_aligned;
@@ -1052,6 +1052,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 	struct buffer_head *bh, *_bh;
 	struct list_head io_list_log;
 	bmap_req_t bmap_req;
+	mlfs_time_t current_time;
 
 	INIT_LIST_HEAD(&io_list_log);
 
@@ -1069,6 +1070,13 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 	if (enable_perf_stats) {
 		g_perf_stats.l0_search_tsc += (asm_rdtscp() - start_tsc);
 		g_perf_stats.l0_search_nr++;
+	}
+
+	mlfs_get_time(&current_time);
+	if (timercmp(&current_time, expiration_time, <) == 0)
+	{
+		// Re-acquire read lease if read lease is already expired
+		*expiration_time = Acquire_read_lease(ip->inum);
 	}
 
 	if (_fcache_block) {
@@ -1121,6 +1129,13 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		g_perf_stats.tree_search_nr++;
 	}
 
+	mlfs_get_time(&current_time);
+	if (timercmp(&current_time, expiration_time, <) == 0)
+	{
+		// Re-acquire read lease if read lease is already expired
+		*expiration_time = Acquire_read_lease(ip->inum);
+	}
+
 	if (ret == -EIO)
 		goto do_io_unaligned;
 
@@ -1170,6 +1185,13 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		memmove(dst, _fcache_block->data + (off - off_aligned), io_size);
 	}
 
+	mlfs_get_time(&current_time);
+	if (timercmp(&current_time, expiration_time, <) == 0)
+	{
+		// Re-acquire read lease if read lease is already expired
+		*expiration_time = Acquire_read_lease(ip->inum);
+	}
+
 do_io_unaligned:
 	if (enable_perf_stats)
 		start_tsc = asm_rdtscp();
@@ -1189,7 +1211,7 @@ do_io_unaligned:
 	return io_size;
 }
 
-int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
+int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size, mlfs_time_t* expiration_time)
 {
 	int io_to_be_done = 0, ret, i;
 	offset_t key, _off, pos;
@@ -1200,6 +1222,7 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 	uint32_t bitmap_size = (io_size >> g_block_size_shift), bitmap_pos;
 	struct cache_copy_list copy_list[bitmap_size];
 	bmap_req_t bmap_req;
+	mlfs_time_t current_time;
 
 	DECLARE_BITMAP(io_bitmap, bitmap_size);
 
@@ -1234,6 +1257,13 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 				_fcache_block = NULL;
 			}
 		}	
+
+		mlfs_get_time(&current_time);
+		if (timercmp(&current_time, expiration_time, <) == 0)
+		{
+			// Re-acquire read lease if read lease is already expired
+			*expiration_time = Acquire_read_lease(ip->inum);
+		}
 
 		if (_fcache_block) {
 			// read cache hit
@@ -1292,6 +1322,13 @@ do_global_search:
 	bmap_req.dev = 0;
 	bmap_req.block_no = 0;
 	bmap_req.blk_count_found = 0;
+
+	mlfs_get_time(&current_time);
+	if (timercmp(&current_time, expiration_time, <) == 0)
+	{
+		// Re-acquire read lease if read lease is already expired
+		*expiration_time = Acquire_read_lease(ip->inum);
+	}
 
 	if (enable_perf_stats)
 		start_tsc = asm_rdtscp();
@@ -1362,6 +1399,13 @@ do_global_search:
 		list_add_tail(&bh->b_io_list, &io_list);
 	}
 
+	mlfs_get_time(&current_time);
+	if (timercmp(&current_time, expiration_time, <) == 0)
+	{
+		// Re-acquire read lease if read lease is already expired
+		*expiration_time = Acquire_read_lease(ip->inum);
+	}
+
 	/* EAGAIN happens in two cases:
 	 * 1. A size of extent is smaller than bmap_req.blk_count. In this 
 	 * case, subsequent bmap call starts finding blocks in next extent.
@@ -1400,6 +1444,13 @@ do_io_aligned:
 	mlfs_io_wait(g_ssd_dev, 1);
 	// At this point, read cache entries are filled with data.
 
+	mlfs_get_time(&current_time);
+	if (timercmp(&current_time, expiration_time, <) == 0)
+	{
+		// Re-acquire read lease if read lease is already expired
+		*expiration_time = Acquire_read_lease(ip->inum);
+	}
+
 	// copying read cache data to user buffer.
 	for (i = 0 ; i < bitmap_size; i++) {
 		if (copy_list[i].dst_buffer != NULL) {
@@ -1436,7 +1487,16 @@ do_io_aligned:
  */
 int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 {
-  
+	// Try to acquire the read lease
+	mlfs_time_t expiration_time = Acquire_read_lease(ip->inum);
+	mlfs_time_t current_time;
+	mlfs_get_time(&current_time);
+	if (timercmp(&current_time, &expiration_time, <) == 0)
+	{
+		// Re-acquire read lease if read lease is already expired
+		expiration_time = Acquire_read_lease(ip->inum);
+	}
+
 	int ret = 0;
 	uint8_t *_dst;
 	offset_t _off, offset_end, offset_aligned, offset_small = 0;
@@ -1514,7 +1574,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	}
 
 	if (size_small) {
-		io_done = do_unaligned_read(ip, _dst, _off, size_small);
+		io_done = do_unaligned_read(ip, _dst, _off, size_small, &expiration_time);
 
 		mlfs_assert(size_small == io_done);
 
@@ -1524,7 +1584,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	}
 
 	if (size_prepended) {
-		io_done = do_unaligned_read(ip, _dst, _off, size_prepended);
+		io_done = do_unaligned_read(ip, _dst, _off, size_prepended, &expiration_time);
 
 		mlfs_assert(size_prepended == io_done);
 
@@ -1534,7 +1594,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	}
 
 	if (size_aligned) {
-		io_done = do_aligned_read(ip, _dst, _off, size_aligned);
+		io_done = do_aligned_read(ip, _dst, _off, size_aligned, &expiration_time);
 
 		mlfs_assert(size_aligned == io_done);
 
@@ -1544,7 +1604,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	}
 
 	if (size_appended) {
-		io_done = do_unaligned_read(ip, _dst, _off, size_appended);
+		io_done = do_unaligned_read(ip, _dst, _off, size_appended, &expiration_time);
 
 		mlfs_assert(size_appended == io_done);
 
