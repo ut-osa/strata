@@ -14,6 +14,7 @@
 #include "mlfs/mlfs_interface.h"
 #include "ds/bitmap.h"
 #include "filesystem/slru.h"
+#include "concurrency/lease.h"
 
 #define _min(a, b) ({\
 		__typeof__(a) _a = a;\
@@ -115,7 +116,7 @@ void shutdown_fs(void)
 	fflush(stdout);
 	fflush(stderr);
 
-	enable_perf_stats = 0;
+	enable_perf_stats = 1;
 
 	shutdown_log();
 
@@ -322,6 +323,7 @@ void init_fs(void)
 		initialized = 1;
 
 		perf_profile = getenv("MLFS_PROFILE");
+                mlfs_info("perf_profile: %d\n", perf_profile);
 
 		if (perf_profile) 
 			enable_perf_stats = 1;		
@@ -1426,6 +1428,7 @@ do_io_aligned:
 
 int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 {
+  
 	int ret = 0;
 	uint8_t *_dst;
 	offset_t _off, offset_end, offset_aligned, offset_small = 0;

@@ -20,4 +20,4 @@ libfs/lib/jemalloc-4.5.0
 compile_commands.json
 tags
 *.swp
-
+gdb.txt
