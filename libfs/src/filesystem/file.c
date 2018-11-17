@@ -203,6 +203,10 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 	offset_t size_aligned, size_prepended, size_appended;
 	offset_t offset_aligned, offset_start, offset_end;
 	char *data;
+	mlfs_time_t current_time;
+	
+	// Try to acquire the write lease
+	mlfs_time_t expiration_time = Acquire_write_lease(f->ip->inum);
 
 	if (f->writable == 0)
 		return -EPERM;
@@ -272,6 +276,13 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 			i += r;
 		}
 
+		mlfs_get_time(&current_time);
+		if (timercmp(&current_time, &expiration_time, <) == 0)
+		{
+			// Re-acquire write lease if write lease is already expired
+			expiration_time = Acquire_write_lease(f->ip->inum);
+		}
+
 		// add aligned portion to log
 		while(i < n - size_appended) {
 			mlfs_assert((f->off % g_block_size_bytes) == 0);
@@ -283,7 +294,6 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 
 			/* add_to_log updates inode block pointers */
 			ilock(f->ip);
-
 			/* do not copy user buffer to page cache */
 			
 			/* add buffer to log header */
@@ -299,6 +309,13 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 				panic("short filewrite");
 
 			i += r;
+
+			mlfs_get_time(&current_time);
+			if (timercmp(&current_time, &expiration_time, <) == 0)
+			{
+				// Re-acquire write lease if write lease is already expired
+				expiration_time = Acquire_write_lease(f->ip->inum);
+			}
 		}
 
 		// add appended portion to log
