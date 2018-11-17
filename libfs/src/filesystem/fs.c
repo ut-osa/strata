@@ -1424,6 +1424,14 @@ do_io_aligned:
 	return io_size;
 }
 
+/**
+ * 
+ * @param ip
+ * @param dst
+ * @param off The current offset of the file
+ * @param io_size
+ * @return the number of bytes have read
+ */
 int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 {
 	int ret = 0;
@@ -1440,31 +1448,64 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	_dst = dst;
 	_off = off;
 
+	// new offset after read io_size
 	offset_end = off + io_size;
+	// The following examples help to understand the ALIGN function
+	// (the closest upper bound of the multiples of block size)
+	// off: 0       offset_aligned: 0
+	// off: 20      offset_aligned: 4096
+	// off: 4096    offset_aligned: 4096
+	// off: 5043    offset_aligned: 8192
 	offset_aligned = ALIGN(off, g_block_size_bytes);
 
 	// aligned read.
+	// Example:
+	// off: 4096  offset_aligned: 4096  offset_end: 8192
 	if ((offset_aligned == off) &&
 		(offset_end == ALIGN(offset_end, g_block_size_bytes))) {
+		// io_size: 4096 => size_aligned: 4096
 		size_aligned = io_size;
 	} 
 	// unaligned read.
 	else {
+		// Example:
+		// 1. off: 4096  offset_aligned: 4096  io_size: 1000
+		// 2. off: 200   offset_end: 300       offset_aligned: 4096
 		if ((offset_aligned == off && io_size < g_block_size_bytes) ||
-				(offset_end < offset_aligned)) { 
+				(offset_end < offset_aligned)) 
+		{
+			// The following examples to help to understand the ALIGN_FLOOR function
+			// (the closest lower bound of the multiples of block size)
+			// off: 0       =>: 0
+			// off: 20      =>: 0
+			// off: 4096    =>: 4096
+			// off: 5043    =>: 4096
 			offset_small = off - ALIGN_FLOOR(off, g_block_size_bytes);
 			size_small = io_size;
-		} else {
-			if (off < offset_aligned) {
+		} else 
+		{
+			// Example:
+			// off: 20	offset_aligned: 4096 io_size: 5000
+			if (off < offset_aligned) 
+			{
+				// size_prepended: 4076
 				size_prepended = offset_aligned - off;
-			} else
+			} 
+			else
+			{
 				size_prepended = 0;
+			}
 
+			// offset_end: 20 + 5000 = 5020 => size_appended: 8192 - 5020 = 3172
 			size_appended = ALIGN(offset_end, g_block_size_bytes) - offset_end;
-			if (size_appended > 0) {
+			
+			if (size_appended > 0) 
+			{
+				// size_appended: 4096 - 3172 = 924
 				size_appended = g_block_size_bytes - size_appended;
 			}
 
+			// size_aligned = 5000 - 4076 - 924 = 0
 			size_aligned = io_size - size_prepended - size_appended; 
 		}
 	}
