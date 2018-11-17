@@ -1,9 +1,7 @@
 # Build directories.
 kernel/kbuild
 !kernel/kbuild/Makefile.setup
-kernfs/build
-
-# Build files.
+kernfs/build # Build files.
 libfs/src/storage/spdk/async.d
 libfs/src/storage/spdk/async.o
 libfs/src/storage/spdk/common.d
@@ -27,4 +25,8 @@ GTAGS
 *.lo
 *.o
 *.la
-bench/filebench/.deps/*
+*.so
+bench/filebench/\.deps
+bench/filebench/autom4te.cache/
+shim/glibc-build-all/
+!**/tests/*.c
