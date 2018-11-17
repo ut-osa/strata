@@ -1494,6 +1494,7 @@ do_io_aligned:
  */
 int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 {
+  //mlfs_info("readi: %d\n", 0);
 	// Try to acquire the read lease
 	mlfs_time_t expiration_time = Acquire_read_lease(ip->inum);
 	mlfs_time_t current_time;

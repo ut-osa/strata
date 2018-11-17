@@ -2,8 +2,10 @@
 #define _LEASE_H
 
 #include "global/types.h"
+#include "global/defs.h"
 #include <unistd.h>
 #include <math.h>
+#include "filesystem/stat.h"
 
 mlfs_time_t acquire_read_lease(uint32_t inum);
 mlfs_time_t acquire_write_lease(uint32_t inum);

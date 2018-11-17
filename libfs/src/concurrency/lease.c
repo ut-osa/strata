@@ -2,6 +2,7 @@
 
 mlfs_time_t acquire_read_lease(uint32_t inum)
 {
+  //mlfs_info("acquire_read_lease: %d\n", 0);
     mlfs_time_t expiration_time;
     mlfs_get_time(&expiration_time);
     expiration_time.tv_usec += 1000;
@@ -11,7 +12,7 @@ mlfs_time_t acquire_read_lease(uint32_t inum)
 void 
 release_read_lease(uint32_t inum)
 {
-    mlfs_info("release_read_lease: %d", 0);
+  //mlfs_info("release_read_lease: %d\n", 0);
 }
 
 mlfs_time_t Acquire_read_lease(uint32_t inum)
