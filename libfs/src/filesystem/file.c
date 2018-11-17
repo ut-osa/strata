@@ -136,8 +136,10 @@ ssize_t mlfs_file_read(struct file *f, uint8_t *buf, size_t n)
 		return -EPERM;
 
 	if (f->type == FD_INODE) {
+		// lock the inode that associated with the file
 		ilock(f->ip);
 
+		// off(set) represents the last read position of the file
 		if (f->off >= f->ip->size) {
 			iunlock(f->ip);
 			return 0;
