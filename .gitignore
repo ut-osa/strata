@@ -30,3 +30,4 @@ bench/filebench/\.deps
 bench/filebench/autom4te.cache/
 shim/glibc-build-all/
 !**/tests/*.c
+.ignore
