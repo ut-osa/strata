@@ -35,26 +35,12 @@ void Acquire_lease(uint32_t inum, mlfs_time_t* expiration_time, char type)
     panic("unknown type");
   }
 
-  // First time to try to get a read lease
-  if ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0)
-  {
-    if (type == 'r')
-    {
-      *expiration_time = acquire_read_lease(inum);
-    }
-    else if (type == 'w')
-    {
-      *expiration_time = acquire_write_lease(inum);
-    }
-    return;
-  }
-
   mlfs_time_t current_time;
   mlfs_get_time(&current_time);
   current_time.tv_usec += MLFS_LEASE_RENEW_THRESHOLD;
-	if (timercmp(&current_time, expiration_time, <) == 0)
+	if (timercmp(&current_time, expiration_time, <) == 0 || ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0))
 	{
-		  // Re-acquire lease if it is time to renewal
+		  // Acquire lease if it is time to renewal or it is our first time to try to get a lease
 		  do
       {
         if (type == 'r')
