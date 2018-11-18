@@ -229,8 +229,8 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 		mlfs_debug("%s\n", "+++ start transaction");
 
     // Try to acquire the write lease
-    mlfs_time_t expiration_time;
-	  Acquire_write_lease(f->ip->inum, &expiration_time);
+    mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+	  Acquire_lease(f->ip->inum, &expiration_time, 'w');
 
 		start_log_tx();
 
@@ -276,7 +276,7 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 			i += r;
 		}
 
-    Acquire_write_lease(f->ip->inum, &expiration_time);
+    Acquire_lease(f->ip->inum, &expiration_time, 'w');
 
 		// add aligned portion to log
 		while(i < n - size_appended) {
@@ -305,7 +305,7 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 
 			i += r;
 
-      Acquire_write_lease(f->ip->inum, &expiration_time);
+      Acquire_lease(f->ip->inum, &expiration_time, 'w');
 		}
 
 		// add appended portion to log

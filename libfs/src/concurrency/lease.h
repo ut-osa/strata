@@ -12,12 +12,13 @@
 #define MLFS_LEASE_USEC 999999
 #define MLFS_LEASE_RENEW_THRESHOLD 10  /* the threhold value to decide when to send renewal request to the kernfs */
 
+#define MLFS_LEASE_EXPIRATION_TIME_INITIALIZER { {0, 0} }
+
 mlfs_time_t acquire_read_lease(uint32_t inum);
 mlfs_time_t acquire_write_lease(uint32_t inum);
 void release_read_lease(uint32_t inum);
 void release_write_lease(uint32_t inum);
 
-void Acquire_read_lease(uint32_t inum, mlfs_time_t* expiration_time);
-void Acquire_write_lease(uint32_t inum, mlfs_time_t* expiration_time);
+void Acquire_lease(uint32_t inum, mlfs_time_t* expiration_time, char type);
 
 #endif

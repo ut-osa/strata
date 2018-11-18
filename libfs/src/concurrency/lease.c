@@ -28,36 +28,44 @@ release_read_lease(uint32_t inum)
     //mlfs_info("release_read_lease: %d\n", 0);
 }
 
-void Acquire_read_lease(uint32_t inum, mlfs_time_t* expiration_time)
+void Acquire_lease(uint32_t inum, mlfs_time_t* expiration_time, char type)
 {
-  mlfs_time_t current_time;
-  mlfs_get_time(&current_time);
-  current_time.tv_usec += MLFS_LEASE_RENEW_THRESHOLD;
-	if (timercmp(&current_time, expiration_time, <) == 0)
-	{
-		  // Re-acquire read lease if it is time to renewal
-		  do
-      {
-        *expiration_time = acquire_read_lease(inum);
-        if ((*expiration_time).tv_sec < 0)
-        {
-            sleep(abs((*expiration_time).tv_sec));
-        }
-      } while ((*expiration_time).tv_sec < 0);
-	}
-}
+  if (type != 'r' && type != 'w')
+  {
+    panic("unknown type");
+  }
 
-void Acquire_write_lease(uint32_t inum, mlfs_time_t* expiration_time)
-{
+  // First time to try to get a read lease
+  if ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0)
+  {
+    if (type == 'r')
+    {
+      *expiration_time = acquire_read_lease(inum);
+    }
+    else if (type == 'w')
+    {
+      *expiration_time = acquire_write_lease(inum);
+    }
+    return;
+  }
+
   mlfs_time_t current_time;
   mlfs_get_time(&current_time);
   current_time.tv_usec += MLFS_LEASE_RENEW_THRESHOLD;
 	if (timercmp(&current_time, expiration_time, <) == 0)
 	{
-		  // Re-acquire read lease if it is time to renewal
+		  // Re-acquire lease if it is time to renewal
 		  do
       {
-        *expiration_time = acquire_write_lease(inum);
+        if (type == 'r')
+        {
+          *expiration_time = acquire_read_lease(inum);
+        }
+        else if (type == 'w')
+        {
+          *expiration_time = acquire_write_lease(inum);
+        }
+
         if ((*expiration_time).tv_sec < 0)
         {
             sleep(abs((*expiration_time).tv_sec));

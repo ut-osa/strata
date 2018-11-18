@@ -939,8 +939,8 @@ void stati(struct inode *ip, struct stat *st)
 {
 	mlfs_assert(ip);
 
-	mlfs_time_t expiration_time; 
-  Acquire_read_lease(ip->inum, &expiration_time);
+	mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+  Acquire_lease(ip->inum, &expiration_time, 'r');
 
 	st->st_dev = ip->dev;
 	st->st_ino = ip->inum;
@@ -1076,7 +1076,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		g_perf_stats.l0_search_nr++;
 	}
 
-  Acquire_read_lease(ip->inum, expiration_time);
+  Acquire_lease(ip->inum, expiration_time, 'r');
 
 	if (_fcache_block) {
 		ret = check_log_invalidation(_fcache_block);
@@ -1128,7 +1128,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		g_perf_stats.tree_search_nr++;
 	}
 
-  Acquire_read_lease(ip->inum, expiration_time);
+  Acquire_lease(ip->inum, expiration_time, 'r');
 
 	if (ret == -EIO)
 		goto do_io_unaligned;
@@ -1179,7 +1179,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		memmove(dst, _fcache_block->data + (off - off_aligned), io_size);
 	}
 
-  Acquire_read_lease(ip->inum, expiration_time);
+  Acquire_lease(ip->inum, expiration_time, 'r');
 
 do_io_unaligned:
 	if (enable_perf_stats)
@@ -1246,7 +1246,7 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 			}
 		}	
 
-    Acquire_read_lease(ip->inum, expiration_time);
+    Acquire_lease(ip->inum, expiration_time, 'r');
 
 		if (_fcache_block) {
 			// read cache hit
@@ -1306,7 +1306,7 @@ do_global_search:
 	bmap_req.block_no = 0;
 	bmap_req.blk_count_found = 0;
 
-  Acquire_read_lease(ip->inum, expiration_time);
+  Acquire_lease(ip->inum, expiration_time, 'r');
 
 	if (enable_perf_stats)
 		start_tsc = asm_rdtscp();
@@ -1377,7 +1377,7 @@ do_global_search:
 		list_add_tail(&bh->b_io_list, &io_list);
 	}
 
-  Acquire_read_lease(ip->inum, expiration_time);
+  Acquire_lease(ip->inum, expiration_time, 'r');
 
 	/* EAGAIN happens in two cases:
 	 * 1. A size of extent is smaller than bmap_req.blk_count. In this 
@@ -1417,7 +1417,7 @@ do_io_aligned:
 	mlfs_io_wait(g_ssd_dev, 1);
 	// At this point, read cache entries are filled with data.
 
-  Acquire_read_lease(ip->inum, expiration_time);
+  Acquire_lease(ip->inum, expiration_time, 'r');
 
 	// copying read cache data to user buffer.
 	for (i = 0 ; i < bitmap_size; i++) {
@@ -1466,8 +1466,8 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	mlfs_assert(off < ip->size);
 
 	// Try to acquire the read lease
-  mlfs_time_t expiration_time;
-  Acquire_read_lease(ip->inum, &expiration_time);
+  mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+  Acquire_lease(ip->inum, &expiration_time, 'r');
 
 	if (off + io_size > ip->size)
 		io_size = ip->size - off;
