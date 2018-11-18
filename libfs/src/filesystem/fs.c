@@ -938,6 +938,7 @@ int itrunc(struct inode *ip, offset_t length)
 void stati(struct inode *ip, struct stat *st)
 {
 	mlfs_assert(ip);
+	mlfs_time_t expiration_time = Acquire_read_lease(ip->inum);
 
 	st->st_dev = ip->dev;
 	st->st_ino = ip->inum;
@@ -954,6 +955,8 @@ void stati(struct inode *ip, struct stat *st)
 	st->st_mtime = (time_t)ip->mtime.tv_sec;
 	st->st_ctime = (time_t)ip->ctime.tv_sec;
 	st->st_atime = (time_t)ip->atime.tv_sec;
+
+	release_read_lease(ip->inum);
 }
 
 // TODO: Now, eviction is simply discarding. Extend this function
