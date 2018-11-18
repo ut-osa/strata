@@ -276,8 +276,6 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 			i += r;
 		}
 
-    Acquire_lease(f->ip->inum, &expiration_time, 'w');
-
 		// add aligned portion to log
 		while(i < n - size_appended) {
 			mlfs_assert((f->off % g_block_size_bytes) == 0);
@@ -305,7 +303,6 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 
 			i += r;
 
-      Acquire_lease(f->ip->inum, &expiration_time, 'w');
 		}
 
 		// add appended portion to log
