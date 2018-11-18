@@ -19,7 +19,7 @@ mlfs_time_t acquire_write_lease(uint32_t inum)
 
 void release_write_lease(uint32_t inum)
 {
-     //mlfs_info("release_write_lease: %d\n", 0);
+    //mlfs_info("release_write_lease: %d\n", 0);
 }
 
 void 
@@ -28,20 +28,23 @@ release_read_lease(uint32_t inum)
     //mlfs_info("release_read_lease: %d\n", 0);
 }
 
-mlfs_time_t Acquire_read_lease(uint32_t inum)
+void Acquire_read_lease(uint32_t inum, mlfs_time_t* expiration_time)
 {
-    mlfs_time_t expiration_time;
-    
-    do
-    {
-        expiration_time = acquire_read_lease(inum);
-        if (expiration_time.tv_sec < 0)
+  mlfs_time_t current_time;
+  mlfs_get_time(&current_time);
+  current_time.tv_usec += MLFS_LEASE_RENEW_THRESHOLD;
+	if (timercmp(&current_time, expiration_time, <) == 0)
+	{
+		  // Re-acquire read lease if read lease is already expired (i.e., renew the lease)
+		  do
+      {
+        *expiration_time = acquire_read_lease(inum);
+        if ((*expiration_time).tv_sec < 0)
         {
-            sleep(abs(expiration_time.tv_sec));
+            sleep(abs((*expiration_time).tv_sec));
         }
-    } while (expiration_time.tv_sec < 0);
-    
-    return expiration_time;
+      } while ((*expiration_time).tv_sec < 0);
+	}
 }
 
 mlfs_time_t Acquire_write_lease(uint32_t inum)
