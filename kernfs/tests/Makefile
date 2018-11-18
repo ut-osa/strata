@@ -27,7 +27,7 @@ DEBUG = -g -Ofast
 ########
 .PHONY: kernfs
 
-BIN := kernfs fifo_cli 
+BIN := kernfs fifo_cli test_lease_manager
 
 all: $(BIN)
 
@@ -42,3 +42,8 @@ extent_test: extent_test.cc
 
 fifo_cli: fifo_cli.c
 	$(CC) -o $@ $^
+
+test_lease_manager: test_lease_manager.c 
+	$(CC) -o $@ $(INCLUDES) $^ -L../build -lkernfs -L$(LIBSPDK_DIR) -lspdk $(LD_FLAGS)  -Wl,-rpath=$(abspath $(LIBSPDK_DIR)) -Wl,-rpath=$(abspath $(NVML_DIR)/nondebug) -DMLFS_DEBUG
+
+
