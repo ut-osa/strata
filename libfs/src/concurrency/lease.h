@@ -18,6 +18,6 @@ void release_read_lease(uint32_t inum);
 void release_write_lease(uint32_t inum);
 
 void Acquire_read_lease(uint32_t inum, mlfs_time_t* expiration_time);
-mlfs_time_t Acquire_write_lease(uint32_t inum);
+void Acquire_write_lease(uint32_t inum, mlfs_time_t* expiration_time);
 
 #endif
