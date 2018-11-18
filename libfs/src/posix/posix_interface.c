@@ -240,6 +240,7 @@ int mlfs_posix_lseek(int fd, int64_t offset, int origin)
 	mlfs_assert(f);
 
 	//lock file
+	mlfs_time_t expiration_time = Acquire_write_lease(f->ip->inum);
 
 	switch(origin) {
 		case SEEK_SET:
@@ -258,6 +259,8 @@ int mlfs_posix_lseek(int fd, int64_t offset, int origin)
 	}
 
 	//unlock file
+	release_write_lease(f->ip->inum);
+
 	return f->off;
 }
 
