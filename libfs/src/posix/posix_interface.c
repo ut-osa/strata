@@ -62,6 +62,10 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
 		if (flags & O_DIRECTORY)
 			panic("O_DIRECTORY cannot be set with O_CREAT\n");
 
+    // NOTE: So far, we only have lease inside of mlfs_object_create.
+    // Probably it is more fine-grained. Conservative approach to have a lease (lock)
+    // immediately on the path once we enter the function. This probably will have
+    // lease API modification and maintain lock table in the kernfs.
 		inode = mlfs_object_create(path, T_FILE);
 
 		mlfs_debug("create file %s - inum %u\n", path, inode->inum);

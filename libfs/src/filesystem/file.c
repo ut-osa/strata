@@ -359,11 +359,16 @@ struct inode *mlfs_object_create(char *path, unsigned short type)
 
 	ilock(parent_inode);
 
+  mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+  Acquire_lease(parent_inode->inum, &expiration_time, 'w');
+
 	if (dir_check_entry_fast(parent_inode)) {
 		inode = dir_lookup(parent_inode, name, &offset);
 
 		if (inode) {
 			iunlockput(parent_inode);
+
+      release_write_lease(parent_inode->inum);
 
 			if (inode->itype != type)
 				inode->itype = type;
@@ -418,6 +423,7 @@ struct inode *mlfs_object_create(char *path, unsigned short type)
 		panic("cannot add entry");
 
 	iunlockput(parent_inode);
+  release_write_lease(parent_inode->inum);
 
 	if (!dlookup_find(g_root_dev, path))
 		dlookup_alloc_add(g_root_dev, inode, path);
