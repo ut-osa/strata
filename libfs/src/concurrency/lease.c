@@ -28,8 +28,10 @@ release_read_lease(uint32_t inum)
     //mlfs_info("release_read_lease: %d\n", 0);
 }
 
-void Acquire_lease(uint32_t inum, mlfs_time_t* expiration_time, char type)
+int Acquire_lease(uint32_t inum, mlfs_time_t* expiration_time, char type)
 {
+  int ret = MLFS_LEASE_OK;
+
   if (type != 'r' && type != 'w')
   {
     panic("unknown type");
@@ -52,11 +54,20 @@ void Acquire_lease(uint32_t inum, mlfs_time_t* expiration_time, char type)
           *expiration_time = acquire_write_lease(inum);
         }
 
+        if ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0)
+        {
+          // This means we hit the error
+          ret = MLFS_LEASE_ERR;
+        }
+
         if ((*expiration_time).tv_sec < 0)
         {
+            ret = MLFS_LEASE_GIVE_UP;
             sleep(abs((*expiration_time).tv_sec));
         }
       } while ((*expiration_time).tv_sec < 0);
 	}
+
+  return ret;
 }
 
