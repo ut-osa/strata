@@ -137,6 +137,7 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
 
 	pthread_rwlock_unlock(&f->rwlock);
 
+  // We add the opened file's <inum, path> to the mlfs_lease_table
   struct mlfs_lease_struct *s;
   s = malloc(sizeof(struct mlfs_lease_struct));
   s->inum = f->ip->inum;
@@ -253,7 +254,7 @@ int mlfs_posix_lseek(int fd, int64_t offset, int origin)
 
 	//lock file
 	mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER; 
-  // Acquire_lease(f->ip->inum, &expiration_time, mlfs_read, T_FILE);
+  Acquire_lease_inum(f->ip->inum, &expiration_time, mlfs_write_op, T_FILE);
 
 	switch(origin) {
 		case SEEK_SET:
@@ -272,7 +273,7 @@ int mlfs_posix_lseek(int fd, int64_t offset, int origin)
 	}
 
 	//unlock file
-	//release_release_lease(f->ip->inum, mlfs_read, T_FILE);
+	mlfs_release_lease(f->ip->inum, mlfs_write_op, T_FILE);
 
 	return f->off;
 }
