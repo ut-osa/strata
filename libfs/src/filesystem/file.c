@@ -230,7 +230,9 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 
     // Try to acquire the write lease
     mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
-	  Acquire_lease(f->ip->inum, &expiration_time, 'w');
+    struct mlfs_lease_struct *s;
+    HASH_FIND_INT(mlfs_lease_table, &f->ip->inum, s);
+	  Acquire_lease(s->path, &expiration_time, mlfs_write, T_FILE);
 
 		start_log_tx();
 
@@ -334,7 +336,7 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 	  if (timercmp(&current_time, &expiration_time, >) == 0)
   	{
 		  // We release the write lease if we finish our work before the expiration_time
-		  release_write_lease(f->ip->inum);
+		  // release_write_lease(f->ip->inum);
 	  }
 
 		return i == n ? n : -1;
@@ -360,7 +362,7 @@ struct inode *mlfs_object_create(char *path, unsigned short type)
 	ilock(parent_inode);
 
   mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
-  Acquire_lease(parent_inode->inum, &expiration_time, 'w');
+  // Acquire_lease(parent_inode->inum, &expiration_time, );
 
 	if (dir_check_entry_fast(parent_inode)) {
 		inode = dir_lookup(parent_inode, name, &offset);
@@ -368,7 +370,7 @@ struct inode *mlfs_object_create(char *path, unsigned short type)
 		if (inode) {
 			iunlockput(parent_inode);
 
-      release_write_lease(parent_inode->inum);
+      // release_write_lease(parent_inode->inum);
 
 			if (inode->itype != type)
 				inode->itype = type;
@@ -423,7 +425,7 @@ struct inode *mlfs_object_create(char *path, unsigned short type)
 		panic("cannot add entry");
 
 	iunlockput(parent_inode);
-  release_write_lease(parent_inode->inum);
+  // release_write_lease(parent_inode->inum);
 
 	if (!dlookup_find(g_root_dev, path))
 		dlookup_alloc_add(g_root_dev, inode, path);

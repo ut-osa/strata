@@ -23,14 +23,14 @@ typedef char inode_t;
 
 struct mlfs_lease_call {
     lease_action action;
-    uint32_t inum;
+    const char* path;
     file_operation operation;
     inode_t type;
 };
 
-mlfs_time_t mlfs_acquire_lease(uint32_t inum, file_operation operation, inode_t type);
-void mlfs_release_lease(uint32_t inum, file_operation operation, inode_t type);
+mlfs_time_t mlfs_acquire_lease(const char* path, file_operation operation, inode_t type);
+void mlfs_release_lease(const char* path, file_operation operation, inode_t type);
+int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation operation, inode_t type);
 
-int Acquire_lease(uint32_t inum, mlfs_time_t* expiration_time, file_operation operation, inode_t type);
 
 #endif

@@ -1,41 +1,22 @@
 #include "lease.h"
 
-mlfs_time_t acquire_read_lease(uint32_t inum)
+mlfs_time_t mlfs_acquire_lease(const char* path, file_operation operation, inode_t type)
 {
-    //mlfs_info("acquire_read_lease: %d\n", 0);
-    mlfs_time_t expiration_time;
-    mlfs_get_time(&expiration_time);
-    expiration_time.tv_usec += 1000;
-    return expiration_time;
+  //mlfs_info("mlfs_acquire_lease: %d\n", 0);
+  mlfs_time_t expiration_time;
+  mlfs_get_time(&expiration_time);
+  expiration_time.tv_usec += 1000;
+  return expiration_time;
 }
 
-mlfs_time_t acquire_write_lease(uint32_t inum)
+void mlfs_release_lease(const char* path)
 {
-    mlfs_time_t expiration_time;
-    mlfs_get_time(&expiration_time);
-    expiration_time.tv_usec += 1200;
-    return expiration_time;
+  //mlfs_info("mlfs_release_lease: %d\n", 0);
 }
 
-void release_write_lease(uint32_t inum)
-{
-    //mlfs_info("release_write_lease: %d\n", 0);
-}
-
-void 
-release_read_lease(uint32_t inum)
-{
-    //mlfs_info("release_read_lease: %d\n", 0);
-}
-
-int Acquire_lease(uint32_t inum, mlfs_time_t* expiration_time, char type)
+int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation operation, inode_t type)
 {
   int ret = MLFS_LEASE_OK;
-
-  if (type != 'r' && type != 'w')
-  {
-    panic("unknown type");
-  }
 
   mlfs_time_t current_time;
   mlfs_get_time(&current_time);
@@ -45,14 +26,7 @@ int Acquire_lease(uint32_t inum, mlfs_time_t* expiration_time, char type)
 		  // Acquire lease if it is time to renewal or it is our first time to try to get a lease
 		  do
       {
-        if (type == 'r')
-        {
-          *expiration_time = acquire_read_lease(inum);
-        }
-        else if (type == 'w')
-        {
-          *expiration_time = acquire_write_lease(inum);
-        }
+        *expiration_time = mlfs_acquire_lease(path, file_operation operation, inode_t type)
 
         if ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0)
         {

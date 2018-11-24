@@ -940,7 +940,7 @@ void stati(struct inode *ip, struct stat *st)
 	mlfs_assert(ip);
 
 	mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
-  Acquire_lease(ip->inum, &expiration_time, 'r');
+  // Acquire_lease(ip->inum, &expiration_time, 'r');
 
 	st->st_dev = ip->dev;
 	st->st_ino = ip->inum;
@@ -958,7 +958,7 @@ void stati(struct inode *ip, struct stat *st)
 	st->st_ctime = (time_t)ip->ctime.tv_sec;
 	st->st_atime = (time_t)ip->atime.tv_sec;
 
-	release_read_lease(ip->inum);
+	// release_read_lease(ip->inum);
 }
 
 // TODO: Now, eviction is simply discarding. Extend this function
@@ -1085,19 +1085,19 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		}
 	}	
 
-  lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
-  if (lease_ret == MLFS_LEASE_ERR)
-  {
-    panic("File is re-created or deleted by other processes");
-    return -ENOENT;
-  }
-  if (lease_ret == MLFS_LEASE_GIVE_UP)
-  {
-    // We need to invalidate read cache
-    // However, in the lease development, we are only working with NVM
-    // NVM has no read cache (e.g., else of `if (bmap_req.dev == g_root_dev)` code path never get hit)
-    // Thus, here, we have no-op
-  }
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //   panic("File is re-created or deleted by other processes");
+  //   return -ENOENT;
+  // }
+  // if (lease_ret == MLFS_LEASE_GIVE_UP)
+  // {
+  //   // We need to invalidate read cache
+  //   // However, in the lease development, we are only working with NVM
+  //   // NVM has no read cache (e.g., else of `if (bmap_req.dev == g_root_dev)` code path never get hit)
+  //   // Thus, here, we have no-op
+  // }
 
 	if (_fcache_block) {
 		// read cache hit
@@ -1140,12 +1140,12 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		g_perf_stats.tree_search_nr++;
 	}
 
-  lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
-  if (lease_ret == MLFS_LEASE_ERR)
-  {
-    panic("File is re-created or deleted by other processes");
-    return -ENOENT;
-  }
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //   panic("File is re-created or deleted by other processes");
+  //   return -ENOENT;
+  // }
 
 	if (ret == -EIO)
 		goto do_io_unaligned;
@@ -1196,7 +1196,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		memmove(dst, _fcache_block->data + (off - off_aligned), io_size);
 	}
 
-  Acquire_lease(ip->inum, expiration_time, 'r');
+  // Acquire_lease(ip->inum, expiration_time, 'r');
 
 do_io_unaligned:
 	if (enable_perf_stats)
@@ -1263,19 +1263,19 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 			}
 		}	
 
-    lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
-    if (lease_ret == MLFS_LEASE_ERR)
-    {
-      panic("File is re-created or deleted by other processes");
-      return -ENOENT;
-    }
-    if (lease_ret == MLFS_LEASE_GIVE_UP)
-    {
-      // We need to invalidate read cache
-      // However, in the lease development, we are only working with NVM
-      // NVM has no read cache (e.g., else of `if (bmap_req.dev == g_root_dev)` code path never get hit)
-      // Thus, here, we have no-op
-    }
+    // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+    // if (lease_ret == MLFS_LEASE_ERR)
+    // {
+    //   panic("File is re-created or deleted by other processes");
+    //   return -ENOENT;
+    // }
+    // if (lease_ret == MLFS_LEASE_GIVE_UP)
+    // {
+    //   // We need to invalidate read cache
+    //   // However, in the lease development, we are only working with NVM
+    //   // NVM has no read cache (e.g., else of `if (bmap_req.dev == g_root_dev)` code path never get hit)
+    //   // Thus, here, we have no-op
+    // }
 
 		if (_fcache_block) {
 			// read cache hit
@@ -1335,12 +1335,12 @@ do_global_search:
 	bmap_req.block_no = 0;
 	bmap_req.blk_count_found = 0;
 
-  lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
-  if (lease_ret == MLFS_LEASE_ERR)
-  {
-      panic("File is re-created or deleted by other processes");
-      return -ENOENT;
-  }
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //     panic("File is re-created or deleted by other processes");
+  //     return -ENOENT;
+  // }
 
 	if (enable_perf_stats)
 		start_tsc = asm_rdtscp();
@@ -1411,12 +1411,12 @@ do_global_search:
 		list_add_tail(&bh->b_io_list, &io_list);
 	}
 
-  lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
-  if (lease_ret == MLFS_LEASE_ERR)
-  {
-    panic("File is re-created or deleted by other processes");
-    return -ENOENT;
-  }
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //   panic("File is re-created or deleted by other processes");
+  //   return -ENOENT;
+  // }
 
 	/* EAGAIN happens in two cases:
 	 * 1. A size of extent is smaller than bmap_req.blk_count. In this 
@@ -1456,12 +1456,12 @@ do_io_aligned:
 	mlfs_io_wait(g_ssd_dev, 1);
 	// At this point, read cache entries are filled with data.
 
-  lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
-  if (lease_ret == MLFS_LEASE_ERR)
-  {
-    panic("File is re-created or deleted by other processes");
-    return -ENOENT;
-  }
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //   panic("File is re-created or deleted by other processes");
+  //   return -ENOENT;
+  // }
 
 	// copying read cache data to user buffer.
 	for (i = 0 ; i < bitmap_size; i++) {
@@ -1511,12 +1511,12 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 
 	// Try to acquire the read lease
   mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
-  lease_ret = Acquire_lease(ip->inum, &expiration_time, 'r');
-  if (lease_ret == MLFS_LEASE_ERR)
-  {
-      panic("File is re-created or deleted by other processes");
-      return -ENOENT;
-  }
+  // lease_ret = Acquire_lease(ip->inum, &expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //     panic("File is re-created or deleted by other processes");
+  //     return -ENOENT;
+  // }
 
 	if (off + io_size > ip->size)
 		io_size = ip->size - off;
@@ -1631,7 +1631,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	if (timercmp(&current_time, &expiration_time, >) == 0)
 	{
 		// We release the read lease if we finish our work before the expiration_time
-		release_read_lease(ip->inum);
+		// release_read_lease(ip->inum);
 	}
 
 	return ret;
