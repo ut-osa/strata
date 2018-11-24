@@ -40,8 +40,6 @@ struct mlfs_lease_strut {
   UT_hash_handle hh; /* makes this structure hashable */
 };
 
-struct mlfs_lease_struct *mlfs_lease_table = NULL;
-
 mlfs_time_t mlfs_acquire_lease(const char* path, file_operation_t operation, inode_t type);
 void mlfs_release_lease(const char* path, file_operation_t operation, inode_t type);
 int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation_t operation, inode_t type);

@@ -1,5 +1,7 @@
 #include "lease.h"
 
+struct mlfs_lease_struct *mlfs_lease_table = NULL;
+
 mlfs_time_t mlfs_acquire_lease(const char* path, file_operation_t operation, inode_t type)
 {
   //mlfs_info("mlfs_acquire_lease: %d\n", 0);
