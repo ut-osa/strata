@@ -490,24 +490,24 @@ int main(int argc, char *argv[])
     }
     else
     {
-      // parent process
-		  int status;
-
-		  cout << "waiting child process" << endl;
-
-		  waitpid(pid, &status, 0);
-
-		  if (status == 1)
-			  cout << "child process terminated with an error" << endl;
-		  else
-			  cout << "child process terminated normally" << endl;
-
-#ifdef MLFS
-		  shutdown_fs();
-#endif
-		  fflush(stdout);
-		  fflush(stderr);
     }
+  }
+
+  int status;
+	cout << "waiting child process" << endl;
+  while (num_processes > 0)
+  {
+    waitpid(pid, &status, 0);
+    if (status == 1)
+		  cout << "child process terminated with an error" << endl;
+		else
+			cout << "child process terminated normally" << endl;
+    --num_processes;
+#ifdef MLFS
+		shutdown_fs();
+#endif
+		fflush(stdout);
+		fflush(stderr);
   }
 
 	return 0;
