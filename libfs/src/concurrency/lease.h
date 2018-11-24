@@ -22,7 +22,7 @@ enum lease_action { acquire, release };
 enum file_operation { mlfs_read_op, mlfs_write_op, mlfs_create_op, mlfs_delete_op, null_op};
 typedef enum file_operation file_operation_t;
 typedef enum lease_action lease_action_t;
-typedef char inode_t;
+typedef char inode_t; // can be T_FILE or T_DIR
 
 struct mlfs_lease_call {
     lease_action_t action;
