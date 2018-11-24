@@ -1,6 +1,7 @@
 CC = gcc -std=c99
 #CC = c99
-EXE = iotest file_basic small_io falloc_test ftrunc_test lock_test lock_perf simple_spdk_test dir_test many_files_test fork_io readdir_test append_test fwrite_fread partial_update_test timer_api
+
+EXE = iotest file_basic small_io falloc_test ftrunc_test lock_test lock_perf simple_spdk_test dir_test many_files_test fork_io readdir_test append_test fwrite_fread partial_update_test timer_api lease_test
 #$(info $(EXE))
 
 CUR_DIR = $(shell pwd)
@@ -102,16 +103,12 @@ partial_update_test: partial_update_test.cc
 fork_io: fork_io.cc time_stat.o 
 	$(CXX) -std=c++11 -g -o $@ $^  -I$(INCLUDES) -L$(LIBFS_DIR) -lmlfs -L$(LIBSPDK_DIR) -lspdk -DMLFS $(CFLAGS) $(LDFLAGS) 
 
-<<<<<<< HEAD
-concurrent_write_crash: concurrent_write_crash.cc
+lease_test: lease_test.cc time_stat.o 
 	$(CXX) -std=c++11 -g -o $@ $^  -I$(INCLUDES) -L$(LIBFS_DIR) -lmlfs -L$(LIBSPDK_DIR) -lspdk -DMLFS $(CFLAGS) $(LDFLAGS) 
 
-||||||| merged common ancestors
-=======
 timer_api: timer_api.c
 	$(CC) -o $@ $^
 
->>>>>>> 0be7d1b3bf81990cd5d116e50f38bf58dac8a223
 clean:
 	rm -rf *.o $(EXE) *.normal
 

@@ -939,6 +939,9 @@ void stati(struct inode *ip, struct stat *st)
 {
 	mlfs_assert(ip);
 
+	mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+  // Acquire_lease(ip->inum, &expiration_time, 'r');
+
 	st->st_dev = ip->dev;
 	st->st_ino = ip->inum;
 	st->st_mode = 0;
@@ -954,6 +957,8 @@ void stati(struct inode *ip, struct stat *st)
 	st->st_mtime = (time_t)ip->mtime.tv_sec;
 	st->st_ctime = (time_t)ip->ctime.tv_sec;
 	st->st_atime = (time_t)ip->atime.tv_sec;
+
+	// release_read_lease(ip->inum);
 }
 
 // TODO: Now, eviction is simply discarding. Extend this function
@@ -1043,9 +1048,9 @@ int check_log_invalidation(struct fcache_block *_fcache_block)
 	return ret;
 }
 
-int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
+int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size, mlfs_time_t* expiration_time)
 {
-	int io_done = 0, ret;
+	int io_done = 0, ret, lease_ret;
 	offset_t key, off_aligned;
 	struct fcache_block *_fcache_block;
 	uint64_t start_tsc;
@@ -1079,6 +1084,20 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 			_fcache_block = NULL;
 		}
 	}	
+
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //   panic("File is re-created or deleted by other processes");
+  //   return -ENOENT;
+  // }
+  // if (lease_ret == MLFS_LEASE_GIVE_UP)
+  // {
+  //   // We need to invalidate read cache
+  //   // However, in the lease development, we are only working with NVM
+  //   // NVM has no read cache (e.g., else of `if (bmap_req.dev == g_root_dev)` code path never get hit)
+  //   // Thus, here, we have no-op
+  // }
 
 	if (_fcache_block) {
 		// read cache hit
@@ -1120,6 +1139,13 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		g_perf_stats.tree_search_tsc += (asm_rdtscp() - start_tsc);
 		g_perf_stats.tree_search_nr++;
 	}
+
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //   panic("File is re-created or deleted by other processes");
+  //   return -ENOENT;
+  // }
 
 	if (ret == -EIO)
 		goto do_io_unaligned;
@@ -1170,6 +1196,8 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 		memmove(dst, _fcache_block->data + (off - off_aligned), io_size);
 	}
 
+  // Acquire_lease(ip->inum, expiration_time, 'r');
+
 do_io_unaligned:
 	if (enable_perf_stats)
 		start_tsc = asm_rdtscp();
@@ -1189,9 +1217,9 @@ do_io_unaligned:
 	return io_size;
 }
 
-int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
+int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size, mlfs_time_t* expiration_time)
 {
-	int io_to_be_done = 0, ret, i;
+	int io_to_be_done = 0, ret, i, lease_ret;
 	offset_t key, _off, pos;
 	struct fcache_block *_fcache_block;
 	uint64_t start_tsc;
@@ -1234,6 +1262,20 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 				_fcache_block = NULL;
 			}
 		}	
+
+    // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+    // if (lease_ret == MLFS_LEASE_ERR)
+    // {
+    //   panic("File is re-created or deleted by other processes");
+    //   return -ENOENT;
+    // }
+    // if (lease_ret == MLFS_LEASE_GIVE_UP)
+    // {
+    //   // We need to invalidate read cache
+    //   // However, in the lease development, we are only working with NVM
+    //   // NVM has no read cache (e.g., else of `if (bmap_req.dev == g_root_dev)` code path never get hit)
+    //   // Thus, here, we have no-op
+    // }
 
 		if (_fcache_block) {
 			// read cache hit
@@ -1292,6 +1334,13 @@ do_global_search:
 	bmap_req.dev = 0;
 	bmap_req.block_no = 0;
 	bmap_req.blk_count_found = 0;
+
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //     panic("File is re-created or deleted by other processes");
+  //     return -ENOENT;
+  // }
 
 	if (enable_perf_stats)
 		start_tsc = asm_rdtscp();
@@ -1362,6 +1411,13 @@ do_global_search:
 		list_add_tail(&bh->b_io_list, &io_list);
 	}
 
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //   panic("File is re-created or deleted by other processes");
+  //   return -ENOENT;
+  // }
+
 	/* EAGAIN happens in two cases:
 	 * 1. A size of extent is smaller than bmap_req.blk_count. In this 
 	 * case, subsequent bmap call starts finding blocks in next extent.
@@ -1400,6 +1456,13 @@ do_io_aligned:
 	mlfs_io_wait(g_ssd_dev, 1);
 	// At this point, read cache entries are filled with data.
 
+  // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //   panic("File is re-created or deleted by other processes");
+  //   return -ENOENT;
+  // }
+
 	// copying read cache data to user buffer.
 	for (i = 0 ; i < bitmap_size; i++) {
 		if (copy_list[i].dst_buffer != NULL) {
@@ -1436,14 +1499,24 @@ do_io_aligned:
  */
 int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 {
-  
-	int ret = 0;
+  //mlfs_info("readi: %d\n", 0);
+
+	int ret = 0, lease_ret;
 	uint8_t *_dst;
 	offset_t _off, offset_end, offset_aligned, offset_small = 0;
 	offset_t size_aligned = 0, size_prepended = 0, size_appended = 0, size_small = 0;
 	int io_done;
 
 	mlfs_assert(off < ip->size);
+
+	// Try to acquire the read lease
+  mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+  // lease_ret = Acquire_lease(ip->inum, &expiration_time, 'r');
+  // if (lease_ret == MLFS_LEASE_ERR)
+  // {
+  //     panic("File is re-created or deleted by other processes");
+  //     return -ENOENT;
+  // }
 
 	if (off + io_size > ip->size)
 		io_size = ip->size - off;
@@ -1514,7 +1587,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	}
 
 	if (size_small) {
-		io_done = do_unaligned_read(ip, _dst, _off, size_small);
+		io_done = do_unaligned_read(ip, _dst, _off, size_small, &expiration_time);
 
 		mlfs_assert(size_small == io_done);
 
@@ -1524,7 +1597,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	}
 
 	if (size_prepended) {
-		io_done = do_unaligned_read(ip, _dst, _off, size_prepended);
+		io_done = do_unaligned_read(ip, _dst, _off, size_prepended, &expiration_time);
 
 		mlfs_assert(size_prepended == io_done);
 
@@ -1534,7 +1607,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	}
 
 	if (size_aligned) {
-		io_done = do_aligned_read(ip, _dst, _off, size_aligned);
+		io_done = do_aligned_read(ip, _dst, _off, size_aligned, &expiration_time);
 
 		mlfs_assert(size_aligned == io_done);
 
@@ -1544,13 +1617,21 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 	}
 
 	if (size_appended) {
-		io_done = do_unaligned_read(ip, _dst, _off, size_appended);
+		io_done = do_unaligned_read(ip, _dst, _off, size_appended, &expiration_time);
 
 		mlfs_assert(size_appended == io_done);
 
 		_dst += io_done;
 		_off += io_done;
 		ret += io_done;
+	}
+
+  mlfs_time_t current_time;
+  mlfs_get_time(&current_time);
+	if (timercmp(&current_time, &expiration_time, >) == 0)
+	{
+		// We release the read lease if we finish our work before the expiration_time
+		// release_read_lease(ip->inum);
 	}
 
 	return ret;

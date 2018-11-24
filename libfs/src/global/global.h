@@ -12,6 +12,7 @@ extern uint8_t g_ssd_dev;
 extern uint8_t g_log_dev;
 extern uint8_t g_hdd_dev;
 
+
 /**
  * Allocates all structures using the global values.
  */

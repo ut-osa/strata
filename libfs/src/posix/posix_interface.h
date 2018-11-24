@@ -3,6 +3,7 @@
 
 #include <sys/stat.h>
 #include "global/global.h"
+#include "concurrency/lease.h"
 
 #ifdef __cplusplus
 extern "C" {

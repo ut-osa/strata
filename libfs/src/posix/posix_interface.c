@@ -13,6 +13,7 @@
 #include "filesystem/fs.h"
 #include "filesystem/file.h"
 #include "log/log.h"
+#include "ds/uthash.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -62,6 +63,10 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
 		if (flags & O_DIRECTORY)
 			panic("O_DIRECTORY cannot be set with O_CREAT\n");
 
+    // NOTE: So far, we only have lease inside of mlfs_object_create.
+    // Probably it is more fine-grained. Conservative approach to have a lease (lock)
+    // immediately on the path once we enter the function. This probably will have
+    // lease API modification and maintain lock table in the kernfs.
 		inode = mlfs_object_create(path, T_FILE);
 
 		mlfs_debug("create file %s - inum %u\n", path, inode->inum);
@@ -130,6 +135,13 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
 	*/
 
 	pthread_rwlock_unlock(&f->rwlock);
+
+        extern struct mlfs_lease_struct *mlfs_lease_table;
+        struct mlfs_lease_struct *s;
+        s = malloc(sizeof(struct mlfs_lease_struct));
+        s->inum = f->ip->inum;
+        strcpy(s->path, path);
+        HASH_ADD_INT(mlfs_lease_table, inum, s);
 
 	return SET_MLFS_FD(fd);
 }
@@ -240,6 +252,8 @@ int mlfs_posix_lseek(int fd, int64_t offset, int origin)
 	mlfs_assert(f);
 
 	//lock file
+	mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER; 
+  // Acquire_lease(f->ip->inum, &expiration_time, mlfs_read, T_FILE);
 
 	switch(origin) {
 		case SEEK_SET:
@@ -258,6 +272,8 @@ int mlfs_posix_lseek(int fd, int64_t offset, int origin)
 	}
 
 	//unlock file
+	//release_release_lease(f->ip->inum, mlfs_read, T_FILE);
+
 	return f->off;
 }
 
