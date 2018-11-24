@@ -484,6 +484,7 @@ int main(int argc, char *argv[])
     else if (pids[i] == 0)
     {
       // child process
+      printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
       auto it = io_workers[i];
       it->prepare();
       it->Run();
@@ -498,6 +499,7 @@ int main(int argc, char *argv[])
   while (num_processes > 0)
   {
     waitpid(pid, &status, 0);
+    printf("Child with PID %ld \t status %x \t \n", (long) pid, status);
     if (status == 1)
 		  cout << "child process terminated with an error" << endl;
 		else
