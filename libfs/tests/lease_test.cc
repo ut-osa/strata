@@ -433,6 +433,7 @@ void io_fork::show_usage(const char *prog)
 	std::cerr << "usage: " << prog  
 		<< " <wr/sr/sw/rr/rw> <fs>" 
 		<< " <size: X{G,M,K,P}, eg: 100M> <IO size, e.g.: 4K>"
+    << " <number of process>"
 		<< endl;
 }
 
@@ -441,18 +442,20 @@ int main(int argc, char *argv[])
 	std::vector<io_fork *> io_workers;
 	unsigned long file_size_bytes;
 	unsigned int io_size = 0;
+  unsigned int num_processes = 0;
 	pid_t pid;
 
-	if (argc != 5) {
+	if (argc != 6) {
 		io_fork::show_usage(argv[0]);
 		exit(-1);
 	}
 
 	file_size_bytes = io_fork::str_to_size(argv[3]);
 	io_size = io_fork::str_to_size(argv[4]);
+  num_processes = std::stoi(argv[5]);
 
 	std::cout << "Total file size: " << file_size_bytes << "B" << endl
-		<< "io size: " << io_size << "B" << endl;
+		<< "io size: " << io_size << "B" << "num of processes: " << num_processes << endl;
 
 	io_workers.push_back(new io_fork(1, 
 				file_size_bytes,
