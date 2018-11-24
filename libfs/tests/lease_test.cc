@@ -290,7 +290,7 @@ READ_START:
 
 void io_fork::Run(void)
 {
-	cout << "process " << id << " start - ";
+	cout << "thread " << id << " start - ";
 	cout << "file: " << test_file << endl;
 
 	if (test_type == SEQ_READ || test_type == RAND_READ)
@@ -472,45 +472,37 @@ int main(int argc, char *argv[])
 #endif
   }
 
-	pid_t pids[num_processes];
+	pid = fork(); 
 
-  for(int i = 0; i < io_workers.size(); ++i)
-  {
-    if ((pids[i] = fork()) < 0)
-    {
-		  cerr << "fork failed" << endl;
-		  exit(-1);
-    }
-    else if (pids[i] == 0)
-    {
-      // child process
-      printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
-      auto it = io_workers[i];
-      it->prepare();
-      it->Run();
-    }
-    else
-    {
-    }
-  }
+	if (pid == 0) {
+		// child process
+		for (auto it : io_workers) {
+			it->prepare();
+			it->Run();
+		}
+	} else if (pid < 0) {
+		cerr << "fork failed" << endl;
+		exit(-1);
+	} 
+	
+	if (pid > 0) {
+		int status;
 
-  int status;
-	cout << "waiting child process" << endl;
-  while (num_processes > 0)
-  {
-    waitpid(pid, &status, 0);
-    printf("Child with PID %ld \t status %x \t \n", (long) pid, status);
-    if (status == 1)
-		  cout << "child process terminated with an error" << endl;
+		cout << "waiting child process" << endl;
+
+		waitpid(pid, &status, 0);
+
+		if (status == 1)
+			cout << "child process terminated with an error" << endl;
 		else
 			cout << "child process terminated normally" << endl;
-    --num_processes;
+
 #ifdef MLFS
 		shutdown_fs();
 #endif
 		fflush(stdout);
 		fflush(stderr);
-  }
+	}
 
 	return 0;
 }
