@@ -455,20 +455,22 @@ int main(int argc, char *argv[])
   num_processes = std::stoi(argv[5]);
 
 	std::cout << "Total file size: " << file_size_bytes << "B" << endl
-		<< "io size: " << io_size << "B" << "num of processes: " << num_processes << endl;
+		<< "io size: " << io_size << "B" << endl << "num of processes: " << num_processes << endl;
 
-	io_workers.push_back(new io_fork(1, 
-				file_size_bytes,
-				io_size,
-				io_fork::get_test_type(argv[1]),
-				io_fork::get_test_mode(argv[2])));
-
+  for(int i = 0; i < num_processes; ++i)
+  {
+	  io_workers.push_back(new io_fork(i+1, 
+				  file_size_bytes,
+				  io_size,
+				  io_fork::get_test_type(argv[1]),
+				  io_fork::get_test_mode(argv[2])));
 #ifdef MLFS
-	init_fs();
-	io_workers[0]->do_fsync = 0;
+	  init_fs();
+	  io_workers[i]->do_fsync = 0;
 #else
-	io_workers[0]->do_fsync = 1;
+	  io_workers[i]->do_fsync = 1;
 #endif
+  }
 
 	pid = fork(); 
 
