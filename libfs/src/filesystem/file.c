@@ -228,11 +228,11 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 
 		mlfs_debug("%s\n", "+++ start transaction");
 
-    // Try to acquire the write lease
-    mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
-    struct mlfs_lease_struct *s;
-    HASH_FIND_INT(mlfs_lease_table, &f->ip->inum, s);
-	  Acquire_lease(s->path, &expiration_time, mlfs_write, T_FILE);
+                // Try to acquire the write lease
+                mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+                struct mlfs_lease_struct *s;
+                HASH_FIND_INT(mlfs_lease_table, &(f->ip->inum), s);
+                Acquire_lease(s->path, &expiration_time, mlfs_write_op, T_FILE);
 
 		start_log_tx();
 

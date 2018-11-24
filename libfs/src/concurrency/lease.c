@@ -1,6 +1,6 @@
 #include "lease.h"
 
-mlfs_time_t mlfs_acquire_lease(const char* path, file_operation operation, inode_t type)
+mlfs_time_t mlfs_acquire_lease(const char* path, file_operation_t operation, inode_t type)
 {
   //mlfs_info("mlfs_acquire_lease: %d\n", 0);
   mlfs_time_t expiration_time;
@@ -9,12 +9,12 @@ mlfs_time_t mlfs_acquire_lease(const char* path, file_operation operation, inode
   return expiration_time;
 }
 
-void mlfs_release_lease(const char* path)
+void mlfs_release_lease(const char* path, file_operation_t operation, inode_t type)
 {
   //mlfs_info("mlfs_release_lease: %d\n", 0);
 }
 
-int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation operation, inode_t type)
+int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation_t operation, inode_t type)
 {
   int ret = MLFS_LEASE_OK;
 
@@ -26,7 +26,7 @@ int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation
 		  // Acquire lease if it is time to renewal or it is our first time to try to get a lease
 		  do
       {
-        *expiration_time = mlfs_acquire_lease(path, file_operation operation, inode_t type)
+        *expiration_time = mlfs_acquire_lease(path, operation, type);
 
         if ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0)
         {

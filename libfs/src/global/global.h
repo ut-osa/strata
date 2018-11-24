@@ -12,15 +12,6 @@ extern uint8_t g_ssd_dev;
 extern uint8_t g_log_dev;
 extern uint8_t g_hdd_dev;
 
-/*
- * We store the <inum, path> mapping for the lease use
- */
-struct mlfs_lease_struct {
-  int inum; /* we'll use this field as key */
-  char path[4097];
-};
-
-volatile struct lease_struct *mlfs_lease_table = NULL;
 
 /**
  * Allocates all structures using the global values.
