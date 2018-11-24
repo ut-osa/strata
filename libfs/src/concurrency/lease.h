@@ -34,7 +34,7 @@ struct mlfs_lease_call {
 /*
  * We store the <inum, path> mapping for the lease use
  */
-struct mlfs_lease_strut {
+struct mlfs_lease_struct {
   int inum;          /* we'll use this field as key */
   char path[4097];
   UT_hash_handle hh; /* makes this structure hashable */

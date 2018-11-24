@@ -135,12 +135,13 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
 	*/
 
 	pthread_rwlock_unlock(&f->rwlock);
-  
-  struct mlfs_lease_struct *s;
-  s = malloc(sizeof(struct mlfs_lease_struct));
-  s->inum = f->ip->inum;
-  strcpy(s->path, path);
-  HASH_ADD_INT(mlfs_lease_table, inum, s);
+
+        extern struct mlfs_lease_struct *mlfs_lease_table;
+        struct mlfs_lease_struct *s;
+        s = malloc(sizeof(struct mlfs_lease_struct));
+        s->inum = f->ip->inum;
+        strcpy(s->path, path);
+        HASH_ADD_INT(mlfs_lease_table, inum, s);
 
 	return SET_MLFS_FD(fd);
 }
@@ -271,7 +272,7 @@ int mlfs_posix_lseek(int fd, int64_t offset, int origin)
 	}
 
 	//unlock file
-	release_release_lease(f->ip->inum, mlfs_read, T_FILE);
+	//release_release_lease(f->ip->inum, mlfs_read, T_FILE);
 
 	return f->off;
 }
