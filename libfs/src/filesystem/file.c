@@ -196,14 +196,13 @@ int mlfs_file_read_offset(struct file *f, uint8_t *buf, size_t n, offset_t off)
 // Write to file f.
 int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 {
-	int r;
+	int r, lease_ret;
 	uint32_t max_io_size = (128 << 20);
 	offset_t i = 0, file_size;
 	uint32_t io_size = 0;
 	offset_t size_aligned, size_prepended, size_appended;
 	offset_t offset_aligned, offset_start, offset_end;
 	char *data;
-  extern struct mlfs_lease_struct *mlfs_lease_table;
 	
 	if (f->writable == 0)
 		return -EPERM;
@@ -231,10 +230,12 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 
     // Try to acquire the write lease
     mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
-    struct mlfs_lease_struct *s;
-    int id = f->ip->inum;
-    HASH_FIND_INT(mlfs_lease_table, &id, s);
-    Acquire_lease(s->path, &expiration_time, mlfs_write_op, T_FILE);
+    lease_ret = Acquire_lease_inum(f->ip->inum, &expiration_time, mlfs_write_op, T_FILE);
+    if (lease_ret == MLFS_LEASE_ERR)
+    {
+      panic("File is re-created or deleted by other processes");
+      return -ENOENT;
+    }
 
 		start_log_tx();
 
@@ -352,6 +353,7 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 //supporting type : T_FILE, T_DIR
 struct inode *mlfs_object_create(char *path, unsigned short type)
 {
+  int lease_ret;
 	offset_t offset;
 	struct inode *inode = NULL, *parent_inode = NULL;
 	char name[DIRSIZ];
@@ -363,16 +365,11 @@ struct inode *mlfs_object_create(char *path, unsigned short type)
 
 	ilock(parent_inode);
 
-  mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
-  // Acquire_lease(parent_inode->inum, &expiration_time, );
-
 	if (dir_check_entry_fast(parent_inode)) {
 		inode = dir_lookup(parent_inode, name, &offset);
 
 		if (inode) {
 			iunlockput(parent_inode);
-
-      // release_write_lease(parent_inode->inum);
 
 			if (inode->itype != type)
 				inode->itype = type;
@@ -386,6 +383,14 @@ struct inode *mlfs_object_create(char *path, unsigned short type)
 
 	if (enable_perf_stats) 
 		tsc_begin = asm_rdtscp();
+
+  mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+  lease_ret = Acquire_lease(path, &expiration_time, mlfs_create_op, type);
+  if (lease_ret == MLFS_LEASE_ERR)
+  {
+    panic("File is re-created or deleted by other processes");
+    return -ENOENT;
+  }
 
 	// create new inode
 	inode = icreate(parent_inode->dev, type);
@@ -427,7 +432,7 @@ struct inode *mlfs_object_create(char *path, unsigned short type)
 		panic("cannot add entry");
 
 	iunlockput(parent_inode);
-  // release_write_lease(parent_inode->inum);
+  mlfs_release_lease(path, mlfs_create_op, type);
 
 	if (!dlookup_find(g_root_dev, path))
 		dlookup_alloc_add(g_root_dev, inode, path);

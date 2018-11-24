@@ -47,3 +47,41 @@ int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation
   return ret;
 }
 
+int Acquire_lease_inum(uint32_t inum, mlfs_time_t* expiration_time, file_operation_t operation, inode_t type)
+{
+  int ret = MLFS_LEASE_OK;
+  extern struct mlfs_lease_struct* mlfs_lease_table;
+  struct mlfs_lease_struct *s;
+  // There is no key error b/c we assume the file is opened (and thus the inum is added
+  // to the mlfs_lease_table) before the file is written
+  HASH_FIND_INT(mlfs_lease_table, &inum, s);
+
+  mlfs_time_t current_time;
+  mlfs_get_time(&current_time);
+  current_time.tv_usec += MLFS_LEASE_RENEW_THRESHOLD;
+	if (timercmp(&current_time, expiration_time, <) == 0 || ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0))
+	{
+		  // Acquire lease if it is time to renewal or it is our first time to try to get a lease
+		  do
+      {
+        *expiration_time = mlfs_acquire_lease(s->path, operation, type);
+
+        if ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0)
+        {
+          // This means we hit the error
+          ret = MLFS_LEASE_ERR;
+        }
+
+        if ((*expiration_time).tv_sec < 0)
+        {
+            ret = MLFS_LEASE_GIVE_UP;
+            sleep(abs((*expiration_time).tv_sec));
+        }
+      } while ((*expiration_time).tv_sec < 0);
+	}
+
+  return ret;
+}
+
+
+

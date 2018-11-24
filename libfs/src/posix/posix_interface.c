@@ -56,6 +56,7 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
 	struct file *f;
 	struct inode *inode;
 	int fd;
+  extern struct mlfs_lease_struct *mlfs_lease_table;
 
 	start_log_tx();
 
@@ -136,12 +137,11 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
 
 	pthread_rwlock_unlock(&f->rwlock);
 
-        extern struct mlfs_lease_struct *mlfs_lease_table;
-        struct mlfs_lease_struct *s;
-        s = malloc(sizeof(struct mlfs_lease_struct));
-        s->inum = f->ip->inum;
-        strcpy(s->path, path);
-        HASH_ADD_INT(mlfs_lease_table, inum, s);
+  struct mlfs_lease_struct *s;
+  s = malloc(sizeof(struct mlfs_lease_struct));
+  s->inum = f->ip->inum;
+  strcpy(s->path, path);
+  HASH_ADD_INT(mlfs_lease_table, inum, s);
 
 	return SET_MLFS_FD(fd);
 }
@@ -350,7 +350,12 @@ int mlfs_posix_stat(const char *filename, struct stat *stat_buf)
 		return -ENOENT;
 	}
 
+  mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+  Acquire_lease(filename, &expiration_time, mlfs_read_op, T_FILE);
+
 	stati(inode, stat_buf);
+
+  mlfs_release_lease(filename, mlfs_read_op, T_FILE);
 
 	return 0;
 }

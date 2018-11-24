@@ -939,9 +939,6 @@ void stati(struct inode *ip, struct stat *st)
 {
 	mlfs_assert(ip);
 
-	mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
-  // Acquire_lease(ip->inum, &expiration_time, 'r');
-
 	st->st_dev = ip->dev;
 	st->st_ino = ip->inum;
 	st->st_mode = 0;
@@ -958,7 +955,6 @@ void stati(struct inode *ip, struct stat *st)
 	st->st_ctime = (time_t)ip->ctime.tv_sec;
 	st->st_atime = (time_t)ip->atime.tv_sec;
 
-	// release_read_lease(ip->inum);
 }
 
 // TODO: Now, eviction is simply discarding. Extend this function
@@ -1228,6 +1224,7 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 	uint32_t bitmap_size = (io_size >> g_block_size_shift), bitmap_pos;
 	struct cache_copy_list copy_list[bitmap_size];
 	bmap_req_t bmap_req;
+  extern struct mlfs_lease_struct* mlfs_lease_table;
 
 	DECLARE_BITMAP(io_bitmap, bitmap_size);
 
@@ -1262,6 +1259,7 @@ int do_aligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_si
 				_fcache_block = NULL;
 			}
 		}	
+
 
     // lease_ret = Acquire_lease(ip->inum, expiration_time, 'r');
     // if (lease_ret == MLFS_LEASE_ERR)
@@ -1511,12 +1509,12 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 
 	// Try to acquire the read lease
   mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
-  // lease_ret = Acquire_lease(ip->inum, &expiration_time, 'r');
-  // if (lease_ret == MLFS_LEASE_ERR)
-  // {
-  //     panic("File is re-created or deleted by other processes");
-  //     return -ENOENT;
-  // }
+  lease_ret = Acquire_lease_inum(ip->inum, &expiration_time, mlfs_read_op, T_FILE);
+  if (lease_ret == MLFS_LEASE_ERR)
+  {
+    panic("File is re-created or deleted by other processes");
+    return -ENOENT;
+  }
 
 	if (off + io_size > ip->size)
 		io_size = ip->size - off;
