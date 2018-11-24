@@ -290,7 +290,7 @@ READ_START:
 
 void io_fork::Run(void)
 {
-	cout << "thread " << id << " start - ";
+	cout << "process " << id << " start - ";
 	cout << "file: " << test_file << endl;
 
 	if (test_type == SEQ_READ || test_type == RAND_READ)
@@ -472,37 +472,43 @@ int main(int argc, char *argv[])
 #endif
   }
 
-	pid = fork(); 
+	pid_t pids[num_processes];
 
-	if (pid == 0) {
-		// child process
-		for (auto it : io_workers) {
-			it->prepare();
-			it->Run();
-		}
-	} else if (pid < 0) {
-		cerr << "fork failed" << endl;
-		exit(-1);
-	} 
-	
-	if (pid > 0) {
-		int status;
+  for(int i = 0; i < io_workers.size(); ++i)
+  {
+    if ((pids[i] = fork()) < 0)
+    {
+		  cerr << "fork failed" << endl;
+		  exit(-1);
+    }
+    else if (pids[i] == 0)
+    {
+      // child process
+      auto it = io_workers[i];
+      it->prepare();
+      it->Run();
+    }
+    else
+    {
+      // parent process
+		  int status;
 
-		cout << "waiting child process" << endl;
+		  cout << "waiting child process" << endl;
 
-		waitpid(pid, &status, 0);
+		  waitpid(pid, &status, 0);
 
-		if (status == 1)
-			cout << "child process terminated with an error" << endl;
-		else
-			cout << "child process terminated normally" << endl;
+		  if (status == 1)
+			  cout << "child process terminated with an error" << endl;
+		  else
+			  cout << "child process terminated normally" << endl;
 
 #ifdef MLFS
-		shutdown_fs();
+		  shutdown_fs();
 #endif
-		fflush(stdout);
-		fflush(stderr);
-	}
+		  fflush(stdout);
+		  fflush(stderr);
+    }
+  }
 
 	return 0;
 }
