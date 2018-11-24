@@ -24,6 +24,8 @@
 #include <ctype.h>
 #include <math.h>
 #include <time.h>
+#include <cassert>
+#include <unordered_map>
 
 #include <iostream>
 #include <string>
@@ -437,72 +439,152 @@ void io_fork::show_usage(const char *prog)
 		<< endl;
 }
 
+#define BUF_SIZE 4096
+
+long int
+calculate_time(struct timeval* t_before, struct timeval* t_after)
+{
+  if (t_after->tv_usec < t_before->tv_usec)
+  {
+    t_after->tv_usec += 1000000;
+    t_after->tv_sec -= 1;
+  }
+  return (t_after->tv_sec - t_before->tv_sec)*1000000 + (t_after->tv_usec - t_before->tv_usec);
+}
+
+int
+DoWrite(const char *filename)
+{
+  char buffer[BUF_SIZE];
+  sprintf(buffer, "file-write-O_CREATE 0\n");
+  int fd = open(filename, O_RDWR | O_CREAT, 0777);
+  assert(fd > 0);
+  write(fd, buffer, strlen(buffer));
+  close(fd);
+  return 0;
+}
+
 int main(int argc, char *argv[])
 {
-	std::vector<io_fork *> io_workers;
-	unsigned long file_size_bytes;
-	unsigned int io_size = 0;
-  unsigned int num_processes = 0;
-	pid_t pid;
+// 	std::vector<io_fork *> io_workers;
+// 	unsigned long file_size_bytes;
+// 	unsigned int io_size = 0;
+//   unsigned int num_processes = 0;
+// 	pid_t pid;
 
-	if (argc != 6) {
-		io_fork::show_usage(argv[0]);
-		exit(-1);
-	}
+// 	if (argc != 6) {
+// 		io_fork::show_usage(argv[0]);
+// 		exit(-1);
+// 	}
 
-	file_size_bytes = io_fork::str_to_size(argv[3]);
-	io_size = io_fork::str_to_size(argv[4]);
-  num_processes = std::stoi(argv[5]);
+// 	file_size_bytes = io_fork::str_to_size(argv[3]);
+// 	io_size = io_fork::str_to_size(argv[4]);
+//   num_processes = std::stoi(argv[5]);
 
-	std::cout << "Total file size: " << file_size_bytes << "B" << endl
-		<< "io size: " << io_size << "B" << endl << "num of processes: " << num_processes << endl;
+// 	std::cout << "Total file size: " << file_size_bytes << "B" << endl
+// 		<< "io size: " << io_size << "B" << endl << "num of processes: " << num_processes << endl;
 
-  for(int i = 0; i < num_processes; ++i)
+//   for(int i = 0; i < num_processes; ++i)
+//   {
+// 	  io_workers.push_back(new io_fork(i+1, 
+// 				  file_size_bytes,
+// 				  io_size,
+// 				  io_fork::get_test_type(argv[1]),
+// 				  io_fork::get_test_mode(argv[2])));
+// #ifdef MLFS
+// 	  init_fs();
+// 	  io_workers[i]->do_fsync = 0;
+// #else
+// 	  io_workers[i]->do_fsync = 1;
+// #endif
+//   }
+
+// 	pid = fork(); 
+
+// 	if (pid == 0) {
+// 		// child process
+// 		for (auto it : io_workers) {
+// 			it->prepare();
+// 			it->Run();
+// 		}
+// 	} else if (pid < 0) {
+// 		cerr << "fork failed" << endl;
+// 		exit(-1);
+// 	} 
+	
+// 	if (pid > 0) {
+// 		int status;
+
+// 		cout << "waiting child process" << endl;
+
+// 		waitpid(pid, &status, 0);
+
+// 		if (status == 1)
+// 			cout << "child process terminated with an error" << endl;
+// 		else
+// 			cout << "child process terminated normally" << endl;
+
+// #ifdef MLFS
+// 		shutdown_fs();
+// #endif
+// 		fflush(stdout);
+// 		fflush(stderr);
+// 	}
+
+// 	return 0;
+
+  string filename = "/tmp/testfile";
+  int fd = open(filename.c_str(), O_RDWR | O_CREAT, 0777);
+  assert(fd > 0);
+
+  int numProcesses = 4;
+  pid_t pids[numProcesses];
+  // <before, after>
+  vector<pair<struct timeval*, struct timeval*>> time;
+  for(int i = 0; i < numProcesses; ++i)
   {
-	  io_workers.push_back(new io_fork(i+1, 
-				  file_size_bytes,
-				  io_size,
-				  io_fork::get_test_type(argv[1]),
-				  io_fork::get_test_mode(argv[2])));
-#ifdef MLFS
-	  init_fs();
-	  io_workers[i]->do_fsync = 0;
-#else
-	  io_workers[i]->do_fsync = 1;
-#endif
+    time.emplace_back(make_pair((struct timeval *) malloc(sizeof(struct timeval)), (struct timeval *) malloc(sizeof(struct timeval))));
+  }
+  // <pid, idx of the time>
+  unordered_map<int, int> table;
+
+
+  /* Start children. */
+  for (int i = 0; i < numProcesses; ++i)
+  {
+    if ((pids[i] = fork()) < 0)
+    {
+      perror("fork");
+      abort();
+    }
+    else if (pids[i] == 0)
+    {
+      // child process
+      printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
+      table[getpid()] = i;
+      DoWrite(filename.c_str());
+      exit(0);
+    }
+    else
+    {
+      // parent process
+      gettimeofday(time[i].first, NULL);
+    }
   }
 
-	pid = fork(); 
+  /* Wait for children to exit. */
+  int status;
+  pid_t pid;
+  while (numProcesses > 0)
+  {
+    pid = wait(&status);
+    gettimeofday(time[table[pid]].second, NULL);
+    printf("Child with PID %ld \t status %x \t time: %ld us\n",
+           (long) pid,
+           status,
+           calculate_time(time[table[pid]].first, time[table[pid]].second));
+    --numProcesses;  // TODO(pts): Remove pid from the pids array.
+  }
 
-	if (pid == 0) {
-		// child process
-		for (auto it : io_workers) {
-			it->prepare();
-			it->Run();
-		}
-	} else if (pid < 0) {
-		cerr << "fork failed" << endl;
-		exit(-1);
-	} 
-	
-	if (pid > 0) {
-		int status;
-
-		cout << "waiting child process" << endl;
-
-		waitpid(pid, &status, 0);
-
-		if (status == 1)
-			cout << "child process terminated with an error" << endl;
-		else
-			cout << "child process terminated normally" << endl;
-
-#ifdef MLFS
-		shutdown_fs();
-#endif
-		fflush(stdout);
-		fflush(stderr);
-	}
-
-	return 0;
+  return 0;
 }
