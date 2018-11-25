@@ -9,20 +9,31 @@
     the file is crashed while holding the lease.
  ************************************************************************/
 
+#include <cassert>
+#include <ctype.h>
+#include <err.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
-#include <fcntl.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <assert.h>
 #include <sys/time.h>
+#include <sys/types.h>
 #include <sys/wait.h>
-
+#include <time.h>
+#include <unistd.h>
 #include <unordered_map>
-#include <vector>
+#include <cstdlib>
+#include <stdlib.h>
+
+#include <iostream>
 #include <string>
+#include <vector>
+#include <unordered_map>
+
 
 using namespace std;
 
@@ -52,7 +63,7 @@ DoWrite(const char *filename)
 }
 
 void show_usage(const char *prog) {
-  std::cerr << "usage: " << prog << "cmd" << endl;
+  cerr << "usage: " << prog << " \"cmd\"" << endl;
 }
 
 
@@ -60,10 +71,10 @@ int
 main(int argc, char **argv)
 {
     if (argc != 2) {
-        io_fork::show_usage(argv[0]);
+        show_usage(argv[0]);
         exit(-1);
     }
-    cout << argv[1] << endl;
+    string cmd = argv[1];
 
     string filename = "/tmp/testfile";
     int fd = open(filename.c_str(), O_RDWR | O_CREAT, 0777);
@@ -95,7 +106,8 @@ main(int argc, char **argv)
             printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
             table[getpid()] = i;
             //DoWrite(filename.c_str());
-            string cmd = string("./run.sh iotest sr 100M 4K 1 > ") + "/tmp/log" + to_string(i);
+            cmd = cmd + " > /tmp/log" + to_string(i);
+            cout << "CMD" + to_string(i) + ": " + cmd << endl;
             system(cmd.c_str());
             exit(0);
         }
