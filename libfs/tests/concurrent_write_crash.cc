@@ -51,10 +51,19 @@ DoWrite(const char *filename)
     return 0;
 }
 
+void show_usage(const char *prog) {
+  std::cerr << "usage: " << prog << "cmd" << endl;
+}
+
+
 int
 main(int argc, char **argv)
 {
-    //	init_fs();
+    if (argc != 2) {
+        io_fork::show_usage(argv[0]);
+        exit(-1);
+    }
+    cout << argv[1] << endl;
 
     string filename = "/tmp/testfile";
     int fd = open(filename.c_str(), O_RDWR | O_CREAT, 0777);
