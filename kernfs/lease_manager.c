@@ -1,6 +1,7 @@
 #include "lease_manager.h"
 #include "assert.h"
 #include "global/defs.h"
+#include "filesystem/shared.h"
 #include <stdlib.h>
 mlfs_lease_t *mlfs_lease_global = NULL;
 mlfs_time_t lease_interval;
@@ -13,6 +14,22 @@ void init_lease_global()
     lease_interval.tv_sec = MLFS_LEASE_SEC;
     lease_interval.tv_usec = MLFS_LEASE_USEC;
     timerclear(&lease_error);
+}
+
+bool has_undeleted_subdir(mlfs_lease_t *lease)
+{
+    const char *path = lease->path;
+    // if there is undeleted files that the process is unaware of, they should be delete / create the file
+    mlfs_lease_t *it;
+    int len = strlen(path);
+    for (it = mlfs_lease_global; it != NULL; it = (mlfs_lease_t *)(it->hh.next))
+    {
+        if (it != lease && strlen(it->path) > len && strncmp(path, it->path, len) == 0 && it->last_op_stat != deleted)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 void log_time(const char *name, mlfs_time_t *val)
@@ -105,6 +122,7 @@ mlfs_time_t lease_acquire(const char *path, file_operation_t operation, inode_t 
 {
     mlfs_lease_t *lease = get_or_create_lease(path);
     mlfs_time_t ret;
+    path_stat_t forbidden_stat;
     switch (operation)
     {
     case mlfs_read_op:
@@ -118,14 +136,13 @@ mlfs_time_t lease_acquire(const char *path, file_operation_t operation, inode_t 
         return acquire_write_lease(lease);
         break;
     case mlfs_create_op:
-        if (lease->last_op_client != client && lease->last_op_stat == created)
-            ret = lease_error;
-        else
-            ret = acquire_write_lease(lease);
-        break;
     case mlfs_delete_op:
-        // need more logic to traverse all open files
-        if (lease->last_op_client != client && lease->last_op_stat == deleted)
+        forbidden_stat = operation == mlfs_create_op ? created : deleted;
+        // if the file type is directory we should check if there are files created by other
+        // process that they are unaware of
+        if (type == T_DIR && has_undeleted_subdir(lease))
+            return lease_error;
+        if (lease->last_op_client != client && lease->last_op_stat == forbidden_stat)
             ret = lease_error;
         else
             ret = acquire_write_lease(lease);

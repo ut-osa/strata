@@ -129,7 +129,7 @@ void test_write_after_deletion()
 
 void test_double_create()
 {
-    // two process cannot sequentially create same file without 
+    // two process cannot sequentially create same file without
     // knowing each other
     init_lease_global();
     mlfs_time_t t0, t1, t2;
@@ -158,14 +158,30 @@ void test_double_delete()
     TEST_CHECK(timercmp(&t1, &lease_error, ==));
 }
 
+void test_remove_dir_with_content()
+{
+    init_lease_global();
+    mlfs_time_t t0, t1, t2;
+    pid_t client0 = 0, client1 = 1;
+
+    const char *p1 = "/tmp/folder";
+    const char *p2 = "/tmp/folder/file";
+    t0 = lease_acquire(p2, mlfs_create_op, T_FILE, client0);
+    lease_release(p1, mlfs_create_op, T_FILE, client0);
+    TEST_CHECK(t0.tv_sec > 0 && t0.tv_usec > 0);
+    t1 = lease_acquire(p1, mlfs_delete_op, T_DIR, client1);
+    TEST_CHECK(timercmp(&t1, &lease_error, ==));
+}
+
 TEST_LIST = {
     {"acquire_lease", test_acquire_lease},
     {"read_lease_contention", test_read_lease_contention},
     {"write_lease_contention", test_write_lease_contention},
     {"release_write_lease", test_release_write_lease},
     {"release_read_lease", test_release_read_lease},
-    {"test_read_after_deletion", test_read_after_deletion},
-    {"test_write_after_deletion", test_write_after_deletion},
-    {"test_double_create", test_double_create},
-    {"test_double_delete", test_double_delete},
+    {"read_after_deletion", test_read_after_deletion},
+    {"write_after_deletion", test_write_after_deletion},
+    {"double_create", test_double_create},
+    {"double_delete", test_double_delete},
+    {"remove_dir_with_content", test_remove_dir_with_content},
     {NULL, NULL}};
