@@ -24,6 +24,7 @@
 int log_fd = 0;
 int shm_fd = 0;
 
+
 struct disk_superblock *disk_sb;
 struct super_block *sb[g_n_devices + 1];
 ncx_slab_pool_t *mlfs_slab_pool;
@@ -135,6 +136,8 @@ void shutdown_fs(void)
 		panic("cannot close shared memory\n");
 	*/
 
+    // lease client
+    shutdown_sock();
 	return ;
 }
 
@@ -325,14 +328,17 @@ void init_fs(void)
 		perf_profile = getenv("MLFS_PROFILE");
                 mlfs_info("perf_profile: %d\n", perf_profile);
 
-		if (perf_profile) 
-			enable_perf_stats = 1;		
+		if (perf_profile)
+			enable_perf_stats = 1;
 		else
 			enable_perf_stats = 0;
 
 		memset(&g_perf_stats, 0, sizeof(libfs_stat_t));
 
 		clock_speed_mhz = get_cpu_clock_speed();
+
+        // lease client
+        init_lease_client();
 	}
 }
 
