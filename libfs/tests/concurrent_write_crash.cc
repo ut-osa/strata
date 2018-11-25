@@ -28,6 +28,7 @@
 #include <unordered_map>
 #include <cstdlib>
 #include <stdlib.h>
+#include <fstream>
 
 #include <iostream>
 #include <string>
@@ -63,7 +64,7 @@ DoWrite(const char *filename)
 }
 
 void show_usage(const char *prog) {
-  cerr << "usage: " << prog << " \"cmd\"" << endl;
+  cerr << "usage: " << prog << " lease_test.ini" << endl;
 }
 
 
@@ -74,13 +75,17 @@ main(int argc, char **argv)
         show_usage(argv[0]);
         exit(-1);
     }
-    string cmd = argv[1];
 
-    string filename = "/tmp/testfile";
-    int fd = open(filename.c_str(), O_RDWR | O_CREAT, 0777);
-    assert(fd > 0);
+    string filename = "lease_test.ini";
+    ifstream infile(filename);
+    string line, cmd;
+    vector<string> cmds;
+    while(getline(infile, line))
+    {
+      cmds.push_back(line);
+    }
 
-    int numProcesses = 2;
+    int numProcesses = cmds.size();
     pid_t pids[numProcesses];
     // <before, after>
     vector<pair<struct timeval*, struct timeval*>> time;
@@ -106,7 +111,7 @@ main(int argc, char **argv)
             printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
             table[getpid()] = i;
             //DoWrite(filename.c_str());
-            cmd = cmd + " > /tmp/log" + to_string(i);
+            cmd = cmds[i] + " > /tmp/log" + to_string(i);
             cout << "CMD" + to_string(i) + ": " + cmd << endl;
             system(cmd.c_str());
             exit(0);
