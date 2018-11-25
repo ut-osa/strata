@@ -26,6 +26,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <unordered_map>
+#include <cstdlib>
+#include <stdlib.h>
 
 #include <iostream>
 #include <string>
@@ -77,10 +79,10 @@ public:
 
   void prepare(void);
 
-  void do_read(void);
+  void do_read(bool);
   void do_write(void);
 
-  void Run(void);
+  void Run(bool);
 
   // util methods
   static unsigned long str_to_size(char *str);
@@ -210,7 +212,7 @@ WRITE_START:
   return;
 }
 
-void io_fork::do_read(void) {
+void io_fork::do_read(bool test_lease) {
   int fd;
   unsigned long i;
   int ret;
@@ -247,6 +249,10 @@ READ_START:
        ret, io_size);
        }
        */
+    if (test_lease) {
+      // We try to trigger read lease timeout
+      sleep(10);
+    }
   }
 
   printf("%lx\n", i);
@@ -292,17 +298,17 @@ READ_START:
   return;
 }
 
-void io_fork::Run(void) {
-  cout << "thread " << id << " start - ";
+void io_fork::Run(bool test_lease) {
+  cout << "Process " << id << " start - ";
   cout << "file: " << test_file << endl;
 
   if (test_type == SEQ_READ || test_type == RAND_READ)
-    this->do_read();
+    this->do_read(test_lease);
   else
     this->do_write();
 
   if (test_type == SEQ_WRITE_READ)
-    this->do_read();
+    this->do_read(test_lease);
 
   delete buf;
 
@@ -426,7 +432,7 @@ void io_fork::hexdump(void *mem, unsigned int len) {
 void io_fork::show_usage(const char *prog) {
   std::cerr << "usage: " << prog << " <wr/sr/sw/rr/rw> <fs>"
             << " <size: X{G,M,K,P}, eg: 100M> <IO size, e.g.: 4K>"
-            << " <number of process>" << endl;
+            << " <number of process>" <<   " <number of threads per process>" << endl;
 }
 
 #define BUF_SIZE 4096
@@ -445,10 +451,10 @@ int main(int argc, char *argv[]) {
   std::vector<io_fork *> io_workers;
   unsigned long file_size_bytes;
   unsigned int io_size = 0;
-  unsigned int num_processes = 0;
+  unsigned int num_processes = 0, num_threads = 0;
   pid_t pid;
 
-  if (argc != 6) {
+  if (argc != 7) {
     io_fork::show_usage(argv[0]);
     exit(-1);
   }
@@ -456,10 +462,12 @@ int main(int argc, char *argv[]) {
   file_size_bytes = io_fork::str_to_size(argv[3]);
   io_size = io_fork::str_to_size(argv[4]);
   num_processes = std::stoi(argv[5]);
+  num_threads = std::stoi(argv[6]);
 
   std::cout << "Total file size: " << file_size_bytes << "B" << endl
             << "io size: " << io_size << "B" << endl
-            << "num of processes: " << num_processes << endl;
+            << "num of processes: " << num_processes << endl
+            << "num of threads per process: " << num_threads << endl;
 
   for (int i = 0; i < num_processes; ++i) {
     io_workers.push_back(new io_fork(i + 1, file_size_bytes, io_size,
@@ -492,10 +500,17 @@ int main(int argc, char *argv[]) {
     } else if (pids[i] == 0) {
       // child process
       printf("[son] pid %d from [parent] pid %d\n", getpid(), getppid());
+      setenv("MLFS_PROFILE", "1", 1);
+      char* x = getenv("MLFS_PROFILE");
+      printf("MLFS_PROFILE = %s\n", (x != NULL) ? x : "undefined");   
       table[getpid()] = i;
       auto it = io_workers[i];
       it->prepare();
-      it->Run();
+      if (i == 0) {
+        it->Run(true);
+      } else {
+        it->Run(false);
+      }
       exit(0);
     } else {
       // parent process
