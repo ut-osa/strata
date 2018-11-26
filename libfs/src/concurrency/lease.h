@@ -6,6 +6,7 @@
 #include "global/types.h"
 #include "global/defs.h"
 #include "filesystem/stat.h"
+#include "filesystem/shared.h"
 #include "ds/uthash.h"
 
 // lease time in microseconds
@@ -16,6 +17,10 @@
 #define MLFS_LEASE_ERR -1              /* Indicates we hit the error case we try to acquire lease */ 
 #define MLFS_LEASE_GIVE_UP 1           /* Indicates we are failed to renewal lease (i.e., at one point, we give up the lease before reacquire) */
 #define MLFS_LEASE_OK 0                /* Nothing happens during the renewal */
+
+// lease_client
+#define data_size 4102
+#define SOCKET_NAME "/tmp/mlfs-lease/connection.socket"
 
 #define MLFS_LEASE_EXPIRATION_TIME_INITIALIZER { (0, 0) }
 enum lease_action { acquire, release };
@@ -44,6 +49,6 @@ mlfs_time_t mlfs_acquire_lease(const char* path, file_operation_t operation, ino
 void mlfs_release_lease(const char* path, file_operation_t operation, inode_t type);
 int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation_t operation, inode_t type);
 int Acquire_lease_inum(uint32_t inum, mlfs_time_t* expiration_time, file_operation_t operation, inode_t type);
-
-
+void init_lease_client();
+void shutdown_sock();
 #endif

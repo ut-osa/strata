@@ -19,6 +19,7 @@
 #include "slru.h"
 #include "migrate.h"
 #include "thpool.h"
+#include "lease_server.h"
 
 #define _min(a, b) ({\
 		__typeof__(a) _a = a;\
@@ -31,7 +32,7 @@
 int shm_fd = 0;
 uint8_t *shm_base;
 
-void mlfs_get_time(mlfs_time_t *a) {}
+/*void mlfs_get_time(mlfs_time_t *a) {}*/
 
 pthread_spinlock_t icache_spinlock;
 pthread_spinlock_t dcache_spinlock;
@@ -2033,6 +2034,10 @@ void init_fs(void)
 #ifdef FCONCURRENT
 	file_digest_thread_pool = thpool_init(8);
 #endif
+    // lease_server
+    void * server_arg;
+    threadpool lease_server_thread_pool  = thpool_init(1);
+    thpool_add_work(lease_server_thread_pool, run_server, (void *)server_arg);
 
 	wait_for_event();
 }
