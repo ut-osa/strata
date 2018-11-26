@@ -233,7 +233,7 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
     lease_ret = Acquire_lease_inum(f->ip->inum, &expiration_time, mlfs_write_op, T_FILE);
     if (lease_ret == MLFS_LEASE_ERR)
     {
-      panic("File is re-created or deleted by other processes");
+      MLFS_INFO("File is re-created or deleted by other processes");
       return -ENOENT;
     }
 
