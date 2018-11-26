@@ -47,6 +47,7 @@ struct mlfs_lease_struct {
 
 mlfs_time_t mlfs_acquire_lease(const char* path, file_operation_t operation, inode_t type);
 void mlfs_release_lease(const char* path, file_operation_t operation, inode_t type);
+void mlfs_release_lease_inum(uint32_t inum, file_operation_t operation, inode_t type);
 int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation_t operation, inode_t type);
 int Acquire_lease_inum(uint32_t inum, mlfs_time_t* expiration_time, file_operation_t operation, inode_t type);
 void init_lease_client();

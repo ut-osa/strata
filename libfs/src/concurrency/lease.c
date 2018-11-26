@@ -88,6 +88,16 @@ void mlfs_release_lease(const char* path, file_operation_t operation, inode_t ty
   send_requests(path, operation, type, release);
 }
 
+void mlfs_release_lease_inum(uint32_t inum, file_operation_t operation, inode_t type)
+{
+  extern struct mlfs_lease_struct* mlfs_lease_table;
+  struct mlfs_lease_struct *s;
+  // There is no key error b/c we assume the file is opened (and thus the inum is added
+  // to the mlfs_lease_table) before the file is written
+  HASH_FIND_INT(mlfs_lease_table, &inum, s);
+  mlfs_release_lease(s->path, operation, type);
+}
+
 int Acquire_lease(const char* path, mlfs_time_t* expiration_time, file_operation_t operation, inode_t type)
 {
   int ret = MLFS_LEASE_OK;

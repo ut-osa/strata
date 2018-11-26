@@ -339,7 +339,7 @@ int mlfs_file_write(struct file *f, uint8_t *buf, size_t n)
 	  if (timercmp(&current_time, &expiration_time, >) == 0)
   	{
 		  // We release the write lease if we finish our work before the expiration_time
-		  // release_write_lease(f->ip->inum);
+		  mlfs_release_lease(f->ip->inum, mlfs_write_op, T_FILE);
 	  }
 
 		return i == n ? n : -1;
