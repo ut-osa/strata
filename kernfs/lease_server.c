@@ -1,6 +1,10 @@
 #include "lease_server.h"
 static int socket_fd, epoll_fd;
 struct sockaddr_un name;
+char* action_str[2] = { "acquire", "release" };
+char* operation_str[4] = { "mlfs_read_op", "mlfs_write_op", "mlfs_create_op", "mlfs_delete_op" };
+char* type_str[2] = { "T_FILE", "T_DIR" };
+
 static void socket_create_bind_local() {
 
 	unlink(SOCKET_NAME);
@@ -47,7 +51,7 @@ void accept_and_add_new() {
 	int infd;
 
 	while ((infd = accept(socket_fd, &in_addr, &in_len)) != -1) {
-		printf("Add new Connection\n");
+		mlfs_info("Add new Connection%c\n", ' ');
 		if (make_socket_non_blocking(infd) == -1) {
 			abort();
 		}
@@ -93,17 +97,14 @@ void process_new_data(int fd) {
 			perror("read");
 			break;
 		}
-		printf("Count:%ld\n", count);
-		buf[count] = '\0';
-		printf("Receive from client:%s \n", buf+5);
-		printf("Header: %d\n", buf[0]);
+        buf[count] = '\0';
+		mlfs_info("Message Size: %ld\n", count);
 		struct mlfs_lease_call header = get_header(buf[0]);
 		pid_t pid;
 		memcpy(&pid, buf+sizeof(char), sizeof(pid_t));
-		printf("Pid: %u\n", pid);
 		char path[path_size];
 		memcpy(path, buf+sizeof(char)+sizeof(pid_t), sizeof(path));
-		printf("Path: %s\n", path);
+                mlfs_info("Receive from client: %s %s %s %s\n", action_str[header.action], operation_str[header.operation], header.type == T_FILE ? type_str[0] : type_str[1], path);
 
 		if(header.action == acquire) {
 			char send_data[buf_size];
@@ -119,7 +120,7 @@ void process_new_data(int fd) {
 		
 	}
 	
-	printf("Close connection on descriptor: %d\n", fd);
+	mlfs_info("Close connection on descriptor: %d\n", fd);
 	close(fd);
 }
 
@@ -136,7 +137,7 @@ void run_server(void *arg) {
 		exit(1);
 	}
 
-	printf("\nServer Waiting for client\n");
+	mlfs_info("\nServer Waiting for client%c\n", ' ');
 	fflush(stdout);
 
 	epoll_fd = epoll_create1(0);

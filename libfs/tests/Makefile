@@ -104,7 +104,7 @@ partial_update_test: partial_update_test.cc
 fork_io: fork_io.cc time_stat.o 
 	$(CXX) -std=c++11 -g -o $@ $^  -I$(INCLUDES) -L$(LIBFS_DIR) -lmlfs -L$(LIBSPDK_DIR) -lspdk -DMLFS $(CFLAGS) $(LDFLAGS) 
 
-lease_test: lease_test.cc time_stat.o 
+lease_test: lease_test.cc 
 	$(CXX) -std=c++11 -g -o $@ $^  -I$(INCLUDES) -L$(LIBFS_DIR) -lmlfs -L$(LIBSPDK_DIR) -lspdk -DMLFS $(CFLAGS) $(LDFLAGS) 
 
 timer_api: timer_api.c

@@ -273,7 +273,7 @@ int mlfs_posix_lseek(int fd, int64_t offset, int origin)
 	}
 
 	//unlock file
-	mlfs_release_lease(f->ip->inum, mlfs_write_op, T_FILE);
+	mlfs_release_lease_inum(f->ip->inum, mlfs_write_op, T_FILE);
 
 	return f->off;
 }
