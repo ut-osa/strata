@@ -4,6 +4,8 @@
 #include "filesystem/stat.h"
 #include "global/global.h"
 #include "concurrency/lease.h"
+#include <sys/stat.h>
+
 
 typedef enum { FD_NONE, FD_PIPE, FD_INODE, FD_DIR } fd_type_t;
 struct file {

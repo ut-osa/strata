@@ -1,12 +1,9 @@
 SUBDIRS := ./kernfs ./libfs ./libfs/tests
+.PHONY: all 
 
-all: $(SUBDIRS)
-$(SUBDIRS):
-	$(MAKE) -C $@
+all: 
+	make -C ./kernfs
+	make -C ./kernfs/tests
+	make -C ./libfs
+	make -C ./libfs/tests
 
-clean:
-	for dir in $(SUBDIRS); do\
-		$(MAKE) -C $$dir clean;\
-	done
-
-.PHONY: all $(SUBDIRS)
