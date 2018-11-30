@@ -12,7 +12,7 @@
 // lease time in microseconds
 #define MLFS_LEASE_SEC 10
 #define MLFS_LEASE_USEC 0
-#define MLFS_LEASE_RENEW_THRESHOLD 10  /* the threhold value to decide when to send renewal request to the kernfs */
+#define MLFS_LEASE_RENEW_THRESHOLD 0   /* the threhold value to decide when to send renewal request to the kernfs */
 
 #define MLFS_LEASE_ERR -1              /* Indicates we hit the error case we try to acquire lease */ 
 #define MLFS_LEASE_GIVE_UP 1           /* Indicates we are failed to renewal lease (i.e., at one point, we give up the lease before reacquire) */
@@ -23,8 +23,8 @@
 #define SOCKET_NAME "/tmp/mlfs-lease/connection.socket"
 
 #define MLFS_LEASE_EXPIRATION_TIME_INITIALIZER { (0, 0) }
-enum lease_action { acquire, release };
-enum file_operation { mlfs_read_op, mlfs_write_op, mlfs_create_op, mlfs_delete_op, null_op};
+enum lease_action { acquire = 0, release = 1 };
+enum file_operation { mlfs_read_op = 0, mlfs_write_op = 1, mlfs_create_op = 2, mlfs_delete_op = 3, null_op};
 typedef enum file_operation file_operation_t;
 typedef enum lease_action lease_action_t;
 typedef char inode_t; // can be T_FILE or T_DIR

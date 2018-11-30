@@ -2035,6 +2035,7 @@ void init_fs(void)
 	file_digest_thread_pool = thpool_init(8);
 #endif
     // lease_server
+    init_lease_global();
     void * server_arg;
     threadpool lease_server_thread_pool  = thpool_init(1);
     thpool_add_work(lease_server_thread_pool, run_server, (void *)server_arg);
