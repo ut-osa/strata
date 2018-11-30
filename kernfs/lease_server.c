@@ -142,7 +142,7 @@ void process_new_data(int fd) {
 	close(fd);
 }
 
-void run_server(void *arg) {
+void run_lease_server(void *arg) {
 	struct epoll_event event, *events;
 
 	socket_create_bind_local();
