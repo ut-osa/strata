@@ -60,7 +60,7 @@ DEBUG = -O3
 vpath %.c $(SRC_DIR)
 
 #CC = clang-3.8
-CC = gcc
+CC = gcc -Wall
 CXX = g++ -std=c++11
 
 define make-goal

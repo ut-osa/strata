@@ -64,7 +64,7 @@ DoWrite(const char *filename)
 }
 
 void show_usage(const char *prog) {
-  cerr << "usage: " << prog << " lease_test.ini" << endl;
+  cerr << "usage: " << prog << " .ini" << endl;
 }
 
 
@@ -76,12 +76,13 @@ main(int argc, char **argv)
         exit(-1);
     }
 
-    string filename = "lease_test.ini";
+    string filename = argv[1];
     ifstream infile(filename);
     string line, cmd;
     vector<string> cmds;
     while(getline(infile, line))
     {
+      cout << "line: " << line << endl;
       cmds.push_back(line);
     }
 

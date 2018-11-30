@@ -58,6 +58,7 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
 	int fd;
   extern struct mlfs_lease_struct *mlfs_lease_table;
 
+  mlfs_info("start_log_tx() %c\n", ' ');
 	start_log_tx();
 
 	if (flags & O_CREAT) {
@@ -68,12 +69,14 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
     // Probably it is more fine-grained. Conservative approach to have a lease (lock)
     // immediately on the path once we enter the function. This probably will have
     // lease API modification and maintain lock table in the kernfs.
+                mlfs_info("mlfs_object_create() %c\n", ' ');
 		inode = mlfs_object_create(path, T_FILE);
-
-		mlfs_debug("create file %s - inum %u\n", path, inode->inum);
+                
+		mlfs_info("create file %s - inum %u\n", path, inode->inum);
 
 		if (!inode) {
 			commit_log_tx();
+                        mlfs_info("inum after: %p\n", inode);
 			return -ENOENT;
 		}
 	} else {
@@ -109,7 +112,7 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
 
 	fd = f->fd;
 
-	mlfs_debug("open file %s inum %u fd %d\n", path, inode->inum, fd);
+	mlfs_info("open file %s inum %u fd %d\n", path, inode->inum, fd);
 
 	commit_log_tx();
 

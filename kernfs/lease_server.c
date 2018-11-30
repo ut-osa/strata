@@ -1,4 +1,5 @@
 #include "lease_server.h"
+#include <time.h>
 static int socket_fd, epoll_fd;
 struct sockaddr_un name;
 char* action_str[2] = { "acquire", "release" };
@@ -86,6 +87,19 @@ struct mlfs_lease_call get_header(char c) {
 	header.action = (c & 8);// 8 = 0x1000
 	return header;
 }
+void CurrentTime(char* timeBuffer) {
+    time_t rawtime;
+    struct tm * timeinfo;
+    time ( &rawtime  );
+    timeinfo = localtime ( &rawtime  );
+    int hour = timeinfo->tm_hour;
+    int minute = timeinfo->tm_min;
+    int second = timeinfo->tm_sec;
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    sprintf ( timeBuffer,  "%d:%d:%d.%06ld", hour, minute, second , tv.tv_usec );
+    //mlfs_info( " [ %d:%d:%d ] ", hour, minute, second);
+}
 void process_new_data(int fd) {
 	ssize_t count;
 	char buf[buf_size];//header 1byte, path 4096bytes 
@@ -98,13 +112,17 @@ void process_new_data(int fd) {
 			break;
 		}
         buf[count] = '\0';
-		mlfs_info("Message Size: %ld\n", count);
+        char timeBuffer[60];
+        CurrentTime(timeBuffer);
+		//mlfs_info("Message Size: %ld\n", count);
 		struct mlfs_lease_call header = get_header(buf[0]);
 		pid_t pid;
 		memcpy(&pid, buf+sizeof(char), sizeof(pid_t));
 		char path[path_size];
 		memcpy(path, buf+sizeof(char)+sizeof(pid_t), sizeof(path));
-                mlfs_info("Receive from client: %s %s %s %s\n", action_str[header.action], operation_str[header.operation], header.type == T_FILE ? type_str[0] : type_str[1], path);
+        path[count-sizeof(char)-sizeof(pid_t)] = '\0';
+        mlfs_info("[%s] Receive from client: %s %s %s (%s)\n", timeBuffer, header.action == acquire? action_str[0]: action_str[1], operation_str[header.operation], header.type == T_FILE? type_str[0]:type_str[1], path);
+        //mlfs_info("[%s] Receive from client: %s %s %s (%s) \n", timeBuffer, action_str[0], operation_str[header.operation], header.type == T_FILE ? type_str[0] : type_str[1], path);
 
 		if(header.action == acquire) {
 			char send_data[buf_size];
@@ -137,7 +155,7 @@ void run_server(void *arg) {
 		exit(1);
 	}
 
-	mlfs_info("\nServer Waiting for client%c\n", ' ');
+	//mlfs_info("\nServer Waiting for client%c\n", ' ');
 	fflush(stdout);
 
 	epoll_fd = epoll_create1(0);

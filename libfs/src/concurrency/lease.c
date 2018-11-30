@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <time.h>
 int socket_fd;
 struct mlfs_lease_struct* mlfs_lease_table = NULL;
 
@@ -46,13 +47,38 @@ char get_client_header(file_operation_t operation, inode_t type,
     header = (header | ((int)act << 3));
     return header;
 }
+void Time(char* timeBuffer) {
+    time_t rawtime;
+    struct tm * timeinfo;
+    time ( &rawtime  );
+    timeinfo = localtime ( &rawtime  );
+    int hour = timeinfo->tm_hour;
+    int minute = timeinfo->tm_min;
+    int second = timeinfo->tm_sec;
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    sprintf ( timeBuffer, "%d:%d:%d.%06ld", hour, minute, second , tv.tv_usec );
+    //mlfs_info(" [ %d:%d:%d ] ", hour, minute, second);
+}
+void Timeval(struct timeval tv, char* timeBuffer) {
+    time_t nowtime;
+    struct tm *nowtm;
+    char tmbuf[64];
 
+    nowtime = tv.tv_sec;
+    nowtm = localtime(&nowtime);
+    strftime(tmbuf, sizeof (tmbuf), "%Y-%m-%d %H:%M:%S", nowtm);
+    sprintf(timeBuffer,  "%s.%06ld", tmbuf, tv.tv_usec);
+    //mlfs_info("Received from Server: %s\n", buf);
+}
 mlfs_time_t send_requests(const char* path, file_operation_t operation,
     inode_t type, lease_action_t act)
 {
 
     char header = get_client_header(operation, type, act);
-    mlfs_info("%s %s %s : %s\n", action_string[act], operation_string[operation], type == T_FILE ? type_string[0] : type_string[1], path);
+    char current_time[60];
+    Time(current_time);
+    mlfs_info("[%s] %s %s %s : (%s)\n", current_time, act == acquire ? action_string[0] : action_string[1], operation_string[operation], type == T_FILE ? type_string[0] : type_string[1], path);
     pid_t pid = getpid();
     char send_data[data_size];
     memcpy(send_data, &header, 1);
@@ -71,7 +97,10 @@ mlfs_time_t send_requests(const char* path, file_operation_t operation,
         }
         memcpy(&time, receive_data, sizeof(mlfs_time_t));
         receive_data[count] = '\0';
-        mlfs_info("Received from Server: %ld.%06ld\n", time.tv_sec, time.tv_usec);
+        Time(current_time);
+        char next_time[60];
+        Timeval(time, next_time);
+        mlfs_info("[%s] Recived from server: %s\n", current_time, next_time);
     }
     return time;
 }
@@ -111,6 +140,7 @@ int Acquire_lease(const char* path, mlfs_time_t* expiration_time,
     if (timercmp(&current_time, expiration_time, <) == 0 || ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0)) {
         // Acquire lease if it is time to renewal or it is our first time to try to
         // get a lease
+        mlfs_info("Inside if of Acquire_lease: %c\n", ' ');
         do {
             *expiration_time = mlfs_acquire_lease(path, operation, type);
 
@@ -142,10 +172,13 @@ int Acquire_lease_inum(uint32_t inum, mlfs_time_t* expiration_time,
 
     mlfs_time_t current_time;
     mlfs_get_time(&current_time);
+    /* mlfs_info("expiration_time: %ld, %lu\n", expiration_time->tv_sec, expiration_time->tv_usec); */
+    /* mlfs_info("current_time: %ld, %lu\n", current_time.tv_sec, current_time.tv_usec);     */
     current_time.tv_usec += MLFS_LEASE_RENEW_THRESHOLD;
     if (timercmp(&current_time, expiration_time, <) == 0 || ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0)) {
         // Acquire lease if it is time to renewal or it is our first time to try to
         // get a lease
+      mlfs_info("Inside if of Acquire_lease_inum: %c\n", ' ');
         do {
             *expiration_time = mlfs_acquire_lease(s->path, operation, type);
 

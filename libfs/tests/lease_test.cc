@@ -27,6 +27,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <unordered_map>
+#include <chrono>
+#include <thread>
 
 #include <fstream>
 #include <iostream>
@@ -69,10 +71,23 @@ using namespace std;
 
 ostream& PIDLOG()
 {
-    return std::cout << '[' << getpid() << "] ";
+    time_t now = time(0);
+    struct tm tstruct;
+    char buf[80];
+    tstruct = *localtime(&now);
+    strftime(buf, sizeof(buf), "%X", &tstruct);
+    return std::cout << '[' << getpid() << "][" << buf << "]";
 }
-std::string Strerror(int err) {
+std::string Strerror(int err)
+{
     return std::string("{") + strerror(err) + "}";
+}
+void CHECK_FD(const std::string & filename, int fd) {
+    if (fd > 0) {
+        PIDLOG() << "open rdwr|creat " << filename << " succeeded." << std::endl;
+    } else {
+        PIDLOG() << "open rdwr|creat " << filename << " failed with " << Strerror(-fd) << std::endl;
+    }
 }
 bool makeDir(const std::string& dirname, int expection)
 {
@@ -100,11 +115,12 @@ bool writeFile(const std::string& filename, const std::string& verify_filename, 
     fin.close();
 
     const std::string filecontent = ss.str();
-    int fd = open(filename.c_str(), O_RDWR, 0600);
+    int fd = open(filename.c_str(), O_RDWR | O_CREAT, 0600);
+    CHECK_FD(filename, fd);
     size_t filesize = filecontent.size();
-    write(fd, filecontent.c_str(), filesize);
+    size_t size = write(fd, filecontent.c_str(), filesize);
     close(fd);
-    PIDLOG() << "writeFile " << filename << " finished with " << Strerror(errno) << std::endl;
+    PIDLOG() << "writeFile " << filename << " finished with " << size << " written." << std::endl;
     return errno == expection;
 }
 bool readFile(const std::string& filename, const std::string& verify_filename, int expection)
@@ -114,12 +130,13 @@ bool readFile(const std::string& filename, const std::string& verify_filename, i
     ss << fin.rdbuf();
     fin.close();
     const std::string filecontent = ss.str();
-    int fd = open(filename.c_str(), O_RDWR | O_CREAT, 0600);
+    int fd = open(filename.c_str(), O_RDWR, 0600);
+    CHECK_FD(filename, fd);
     memset(buffer, 0, BUFFER_SIZE);
     size_t filesize = filecontent.size();
-    read(fd, buffer, filesize);
+    size_t size = read(fd, buffer, filesize);
     close(fd);
-    PIDLOG() << "readFile " << filename << " finished with " << Strerror(errno) << std::endl;
+    PIDLOG() << "readFile " << filename << " finished with " << size << " read." << std::endl;
     if (memcmp(filecontent.c_str(), buffer, filesize)) {
         PIDLOG() << "filecontent verify failed." << std::endl;
     }
@@ -127,9 +144,9 @@ bool readFile(const std::string& filename, const std::string& verify_filename, i
 }
 void sleep(int seconds)
 {
-    PIDLOG() << "Sleep for " << seconds << " seconds";
-    sleep(seconds);
-    PIDLOG() << "Sleep finished after " << seconds << " seconds";
+    PIDLOG() << "Sleep for " << seconds << " seconds" << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(seconds));
+    PIDLOG() << "Sleep finished after " << seconds << " seconds" << std::endl;
 }
 std::vector<std::string> split(const std::string& str,
     const std::string& delim)
@@ -150,11 +167,11 @@ std::vector<std::string> split(const std::string& str,
 
 void show_usage(string prog, string err_cmd, int lineno)
 {
-    std::cerr << "usage: " << prog << "test_suite.ini" << endl;
+    std::cerr << "usage: " << prog << " test_suite.ini" << endl;
     cerr << "test_suite.ini support format: " << endl
          << "mkdir <dirname> <expect result>" << endl
          << "read <filename> <verify filename> <expect result>" << endl
-         << "write <filename> <expect result>" << endl
+         << "write <filename> <verify filename> <expect result>" << endl
          << "rm <filename> <expect result>" << endl
          << "rmdir <dirname> <expect result>" << endl
          << "sleep <seconds>" << endl;

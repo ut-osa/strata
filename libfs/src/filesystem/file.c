@@ -358,10 +358,14 @@ struct inode* mlfs_object_create(char* path, unsigned short type)
     char name[DIRSIZ];
     uint64_t tsc_begin, tsc_end;
 
+    mlfs_info("mlfs_object_create %c\n", ' ');
     /* this sets value of name */
     if ((parent_inode = nameiparent(path, name)) == 0)
+    {
+        mlfs_info("mlfs_object_create %c\n", '1');      
         return NULL;
-
+    }
+    
     ilock(parent_inode);
 
     if (dir_check_entry_fast(parent_inode)) {
@@ -375,7 +379,8 @@ struct inode* mlfs_object_create(char* path, unsigned short type)
 
             mlfs_get_time(&inode->ctime);
             inode->atime = inode->mtime = inode->ctime;
-
+            mlfs_info("mlfs_object_create %p\n", inode);
+            mlfs_info("mlfs_object_create %d\n", inode->inum);            
             return inode;
         }
     }
