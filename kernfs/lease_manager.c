@@ -123,6 +123,7 @@ void release_write_lease(mlfs_lease_t *lease)
 
 mlfs_time_t lease_acquire(const char *path, file_operation_t operation, inode_t type, pid_t client)
 {
+    pthread_mutex_lock(&lease_lock);
     mlfs_lease_t *lease = get_or_create_lease(path);
     mlfs_time_t ret;
     path_stat_t forbidden_stat;
@@ -154,10 +155,12 @@ mlfs_time_t lease_acquire(const char *path, file_operation_t operation, inode_t 
         ret = lease_error;
         break;
     }
+    pthread_mutex_unlock(&lease_lock);
     return ret;
 }
 void lease_release(const char *path, file_operation_t operation, inode_t type, pid_t client)
 {
+    pthread_mutex_lock(&lease_lock);
     mlfs_lease_t *lease;
     lease = get_lease(path);
     if (lease == NULL)
@@ -189,4 +192,5 @@ void lease_release(const char *path, file_operation_t operation, inode_t type, p
     default:
         break;
     }
+    pthread_mutex_unlock(&lease_lock);
 }
