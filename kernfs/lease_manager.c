@@ -3,7 +3,10 @@
 #include "global/defs.h"
 #include "filesystem/shared.h"
 #include <stdlib.h>
+#include <pthread.h>
 mlfs_lease_t *mlfs_lease_global = NULL;
+pthread_mutex_t lease_lock;
+
 mlfs_time_t lease_interval;
 mlfs_time_t lease_error;
 
