@@ -20,6 +20,7 @@
 #include "migrate.h"
 #include "thpool.h"
 #include "lease_server.h"
+#include "lease_manager.h"
 
 #define _min(a, b) ({\
         __typeof__(a) _a = a;\
@@ -30,6 +31,7 @@
 #define CREATE 1
 
 extern pthread_mutex_t lease_lock;
+extern mlfs_lease_t* mlfs_lease_global;
 
 int shm_fd = 0;
 uint8_t *shm_base;
@@ -1686,6 +1688,15 @@ static int digest_logs(uint8_t from_dev, int n_hdrs,
     return n_digest;
 }
 
+
+void reset_lease() {
+    mlfs_lease_t *lease;
+    pthread_mutex_lock(&lease_lock);
+    for(lease = mlfs_lease_global; lease != NULL; lease = (mlfs_lease_t* )lease->hh.next) {
+        lease->last_op_stat = unknown;
+    }
+    pthread_mutex_unlock(&lease_lock);
+}
 static void handle_digest_request(void *arg)
 {
     uint32_t dev_id;
@@ -1757,7 +1768,7 @@ static void handle_digest_request(void *arg)
 
         if (enable_perf_stats)
             show_kernfs_stats();
-
+        reset_lease();
     } else if (strcmp(cmd_header, "lru") == 0) {
         // only used for debugging.
         if (0) {
@@ -1890,7 +1901,7 @@ static void wait_for_event(void)
 void shutdown_fs(void)
 {
     printf("Finalize FS\n");
-    pthread_mutex_destroy(&lease_lock); 
+    pthread_mutex_destroy(&lease_lock);
     device_shutdown();
     return ;
 }
