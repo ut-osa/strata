@@ -29,6 +29,8 @@
 #define NOCREATE 0
 #define CREATE 1
 
+extern pthread_mutex_t lease_lock;
+
 int shm_fd = 0;
 uint8_t *shm_base;
 
@@ -2036,9 +2038,8 @@ void init_fs(void)
 #endif
     // lease_server
     init_lease_global();
-    void * server_arg;
     threadpool lease_server_thread_pool  = thpool_init(1);
-    thpool_add_work(lease_server_thread_pool, run_server, (void *)server_arg);
+    thpool_add_work(lease_server_thread_pool, run_lease_server, NULL);
 
 	wait_for_event();
 }

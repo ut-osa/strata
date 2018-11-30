@@ -24,12 +24,5 @@
 #define SOCKET_NAME "/tmp/mlfs-lease/connection.socket"
 
 
-// mlfs_time_t lease_acquire(const char *path, file_operation_t operation, inode_t type, pid_t client);
-// // static void socket_create_bind_local();
-// // static void socket_create_bind_local();
-// // static int make_socket_non_blocking(int sfd);
-// // void accept_and_add_new();
-// // struct mlfs_lease_call get_header(char c);
-// // void process_new_data(int fd);
-void run_server(void *arg);
+void run_lease_server(void *arg);
 #endif
