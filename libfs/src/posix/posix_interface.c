@@ -53,92 +53,157 @@ static int isdirempty(struct inode *dp)
 
 int mlfs_posix_open(char *path, int flags, uint16_t mode)
 {
-	struct file *f;
-	struct inode *inode;
-	int fd;
+  //mlfs_info("Enter mlfs_posix_open %c\n", ' ');
+  //fflush(stdout);
+  struct file *f;
+  struct inode *inode;
+  int fd;
   extern struct mlfs_lease_struct *mlfs_lease_table;
+  mlfs_time_t expiration_time = MLFS_LEASE_EXPIRATION_TIME_INITIALIZER;
+  file_operation_t operation;
+  inode_t type;
+  int lease_ret;
 
   mlfs_info("start_log_tx() %c\n", ' ');
-	start_log_tx();
+  fflush(stdout);  
+  start_log_tx();
 
-	if (flags & O_CREAT) {
-		if (flags & O_DIRECTORY)
-			panic("O_DIRECTORY cannot be set with O_CREAT\n");
+  if (flags & O_CREAT)
+  {
+    if (flags & O_DIRECTORY)
+    {
+      panic("O_DIRECTORY cannot be set with O_CREAT\n");      
+    }
+       
+    //mlfs_info("mlfs_object_create() %c\n", ' ');
+    fflush(stdout);    
+    operation = mlfs_create_op;
+    type = T_FILE;
+    lease_ret = Acquire_lease(path, &expiration_time, operation, type);
+    if (lease_ret == MLFS_LEASE_ERR)
+    {
+      mlfs_info("File is re-created or deleted by other processes%c", ' ');
+      fflush(stdout);      
+      return lease_ret;
+    }
 
-    // NOTE: So far, we only have lease inside of mlfs_object_create.
-    // Probably it is more fine-grained. Conservative approach to have a lease (lock)
-    // immediately on the path once we enter the function. This probably will have
-    // lease API modification and maintain lock table in the kernfs.
-                mlfs_info("mlfs_object_create() %c\n", ' ');
-		inode = mlfs_object_create(path, T_FILE);
+    inode = mlfs_object_create(path, T_FILE);
                 
-		mlfs_info("create file %s - inum %u\n", path, inode->inum);
+    mlfs_info("create file %s - inum %u\n", path, inode->inum);
+    fflush(stdout);
 
-		if (!inode) {
-			commit_log_tx();
-                        mlfs_info("inum after: %p\n", inode);
-			return -ENOENT;
-		}
-	} else {
-		// opendir API
-		if (flags & O_DIRECTORY) {
-			// Fall through..
-			// it is OK to return fd for directory. glibc allocates 
-			// DIR structure and fill it with fd and result from stats. 
-			// check: sysdeps/posix/opendir.c
-		}
+    if (!inode) {
+      commit_log_tx();
+      //mlfs_info("inum after: %p\n", inode);
+      mlfs_release_lease(path, operation, type);
+      return -ENOENT;
+    }
+  }
+  else
+  {
+    //mlfs_info("mlfs_posix_open %s\n", "1992");    
+    //fflush(stdout);
+    operation = mlfs_read_op;
+    // opendir API
+    if (flags & O_DIRECTORY)
+    {
+      // Fall through..
+      // it is OK to return fd for directory. glibc allocates 
+      // DIR structure and fill it with fd and result from stats. 
+      // check: sysdeps/posix/opendir.c
+      //mlfs_info("mlfs_posix_open %s\n", "1991");
+      //fflush(stdout);      
+      type = T_DIR;
+      lease_ret = Acquire_lease(path, &expiration_time, operation, type);
+      if (lease_ret == MLFS_LEASE_ERR) {
+        mlfs_info("File is re-created or deleted by other processes%c", ' ');
+        fflush(stdout);        
+        return lease_ret;
+      }          
+    }
+    else
+    {
+      //mlfs_info("mlfs_posix_open %s\n", "1990");
+      fflush(stdout);            
+      type = T_FILE;
+      lease_ret = Acquire_lease(path, &expiration_time, operation, type);
+      if (lease_ret == MLFS_LEASE_ERR) {
+        mlfs_info("File is re-created or deleted by other processes%c", ' ');
+        fflush(stdout);        
+        return lease_ret;
+      }
+    }
 
-		if ((inode = namei(path)) == NULL) {
-			commit_log_tx();
-			return -ENOENT;
-		}
+    if ((inode = namei(path)) == NULL) {
+      commit_log_tx();
+      //mlfs_info("before return %c\n", '1');
+      //fflush(stdout);      
+      if (flags & O_DIRECTORY)
+      {
+        type = T_DIR;
+        mlfs_release_lease(path, operation, type);
+      }
+      else
+      {
+        type = T_FILE;
+        mlfs_release_lease(path, operation, T_FILE);
+      }
+      return -ENOENT;
+    }
 
-		if (inode->itype == T_DIR) {
-			if (!(flags |= (O_RDONLY|O_DIRECTORY))) {
-				commit_log_tx();
-				return -EACCES;
-			}
-		}
-	}
+    if (inode->itype == T_DIR) {
+      if (!(flags |= (O_RDONLY|O_DIRECTORY))) {
+        commit_log_tx();
+        //mlfs_info("before return %c\n", '2');
+        //fflush(stdout);        
+        mlfs_release_lease(path, operation, T_DIR);
+	return -EACCES;
+      }
+    }
+  }
 
-	f = mlfs_file_alloc();
+  //mlfs_info("mlfs_posix_open %s\n", "1990");
+  //fflush(stdout);      
+  f = mlfs_file_alloc();
 
-	if (f == NULL) {
-		iunlockput(inode);
-		commit_log_tx();
+  if (f == NULL) {
+    iunlockput(inode);
+    commit_log_tx();
+    //mlfs_info("before return %c\n", '3');
+    //fflush(stdout);    
+    mlfs_release_lease(path, operation, type);
+    return -ENOMEM;
+  }
 
-		return -ENOMEM;
-	}
+  fd = f->fd;
 
-	fd = f->fd;
+  mlfs_info("open file %s inum %u fd %d\n", path, inode->inum, fd);
+  fflush(stdout);
+  commit_log_tx();
 
-	mlfs_info("open file %s inum %u fd %d\n", path, inode->inum, fd);
+  pthread_rwlock_wrlock(&f->rwlock);
 
-	commit_log_tx();
+  if (flags & O_DIRECTORY) {
+	mlfs_debug("directory file inum %d\n", inode->inum);
+	f->type = FD_DIR;
+  } else {
+	f->type = FD_INODE;
+  }
 
-	pthread_rwlock_wrlock(&f->rwlock);
+  f->ip = inode;
+  f->readable = !(flags & O_WRONLY);
+  f->writable = (flags & O_WRONLY) || (flags & O_RDWR);
 
-	if (flags & O_DIRECTORY) {
-		mlfs_debug("directory file inum %d\n", inode->inum);
-		f->type = FD_DIR;
-	} else {
-		f->type = FD_INODE;
-	}
+  f->off = 0;
 
-	f->ip = inode;
-	f->readable = !(flags & O_WRONLY);
-	f->writable = (flags & O_WRONLY) || (flags & O_RDWR);
+/* TODO: set inode permission based the mode 
+if (mode & S_IRUSR)
+	// Set read permission
+if (mode & S_IWUSR)
+	// Set write permission
+*/
 
-	f->off = 0;
-
-	/* TODO: set inode permission based the mode 
-	if (mode & S_IRUSR)
-		// Set read permission
-	if (mode & S_IWUSR)
-		// Set write permission
-	*/
-
-	pthread_rwlock_unlock(&f->rwlock);
+  pthread_rwlock_unlock(&f->rwlock);
 
   // We add the opened file's <inum, path> to the mlfs_lease_table
   struct mlfs_lease_struct *s;
@@ -146,8 +211,10 @@ int mlfs_posix_open(char *path, int flags, uint16_t mode)
   s->inum = f->ip->inum;
   strcpy(s->path, path);
   HASH_ADD_INT(mlfs_lease_table, inum, s);
-
-	return SET_MLFS_FD(fd);
+  /* mlfs_info("before return %c\n", '4'); */
+  /* fflush(stdout);   */
+  mlfs_release_lease(path, operation, type);
+  return SET_MLFS_FD(fd);
 }
 
 int mlfs_posix_access(char *pathname, int mode)
@@ -178,10 +245,11 @@ int mlfs_posix_read(int fd, uint8_t *buf, int count)
 	int ret = 0;
 	struct file *f;
 
+        //mlfs_info("Before mlfs_file_read: %c\n", '1');
 	f = &g_fd_table.open_files[fd];
 
 	pthread_rwlock_rdlock(&f->rwlock);
-
+        //mlfs_info("Before mlfs_file_read: %c\n", '2');
 	mlfs_assert(f);
 
 	if (f->ref == 0) {
@@ -189,6 +257,7 @@ int mlfs_posix_read(int fd, uint8_t *buf, int count)
 		return -EBADF;
 	}
 
+        //mlfs_info("Before mlfs_file_read: %c\n", '3');
 	ret = mlfs_file_read(f, buf, count);
 
 	pthread_rwlock_unlock(&f->rwlock);
@@ -223,7 +292,7 @@ int mlfs_posix_write(int fd, uint8_t *buf, size_t count)
 {
 	int ret;
 	struct file *f;
-
+        //mlfs_info("Enter mlfs_posix_write %c\n", ' ');
 	f = &g_fd_table.open_files[fd];
 
 	pthread_rwlock_wrlock(&f->rwlock);
@@ -234,7 +303,7 @@ int mlfs_posix_write(int fd, uint8_t *buf, size_t count)
 		panic("file descriptor is wrong\n");
 		return -EBADF;
 	}
-
+        //mlfs_info("Before mlfs_file_write %c\n", ' ');
 	ret = mlfs_file_write(f, buf, count);
 
 	pthread_rwlock_unlock(&f->rwlock);
@@ -424,30 +493,54 @@ int mlfs_posix_unlink(const char *filename)
 	char name[DIRSIZ];
 	struct inode *inode;
 	struct inode *dir_inode;
+        int lease_ret;
+        mlfs_time_t expiration_time;
+    lease_ret = Acquire_lease(filename, &expiration_time, mlfs_delete_op, T_FILE);
+    if (lease_ret == MLFS_LEASE_ERR)
+    {
+      mlfs_info("File is re-created or deleted by other processes%c", ' ');
+      fflush(stdout);      
+      return lease_ret;
+    }
 
+        
 	/* TODO: handle struct file deletion
 	 * e.g., unlink without calling close */
 
 	dir_inode = nameiparent((char *)filename, name);
 	if (!dir_inode)
-		return -ENOENT;
+        {
+          /* mlfs_info("unlink%c\n", '1'); */
+          /* fflush(stdout); */
+          mlfs_release_lease(filename, mlfs_delete_op, T_FILE);
+	  return -ENOENT;
+        }
 
 	//inode = namei((char *)filename);
 	inode = dir_lookup(dir_inode, name, NULL);
 
-	if (!inode)  
-		return -ENOENT;
+	if (!inode)
+        {
+          /* mlfs_info("unlink%c\n", '2'); */
+          /* fflush(stdout); */
+          mlfs_release_lease(filename, mlfs_delete_op, T_FILE);          
+          return -ENOENT;                    
+        }
 
 	start_log_tx();
 	
 	// remove file from directory
 	ret = dir_remove_entry(dir_inode, name, inode->inum);
 	if (ret < 0) {
-		abort_log_tx();
-		return ret;
+          /* mlfs_info("unlink%c\n", '3'); */
+          /* fflush(stdout);                               */
+          abort_log_tx();
+          mlfs_release_lease(filename, mlfs_delete_op, T_FILE);          
+	  return ret;
 	}
 
-	mlfs_debug("unlink filename %s - inum %u\n", name, inode->inum);
+	/* mlfs_info("unlink filename %s - inum %u\n", name, inode->inum); */
+        /* fflush(stdout); */
 
 	dlookup_del(inode->dev, filename);
 	
@@ -461,6 +554,7 @@ int mlfs_posix_unlink(const char *filename)
 
 	commit_log_tx();
 
+        mlfs_release_lease(filename, mlfs_delete_op, T_FILE);
 	return ret;
 }
 

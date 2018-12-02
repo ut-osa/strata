@@ -113,8 +113,10 @@ main(int argc, char **argv)
             table[getpid()] = i;
             //DoWrite(filename.c_str());
             cmd = cmds[i] + " > /tmp/log" + to_string(i);
+            cmd = string("bash -c ") + "\"" + cmd + "\"";
             cout << "CMD" + to_string(i) + ": " + cmd << endl;
-            system(cmd.c_str());
+            //system(cmd.c_str());
+            execl("/bin/sh", "sh", "-c", cmd.c_str(), (char *) 0);
             exit(0);
         }
         else

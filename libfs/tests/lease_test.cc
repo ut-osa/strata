@@ -84,9 +84,9 @@ std::string Strerror(int err)
 }
 void CHECK_FD(const std::string & filename, int fd) {
     if (fd > 0) {
-        PIDLOG() << "open rdwr|creat " << filename << " succeeded." << std::endl;
+        PIDLOG() << "open " << filename << " succeeded." << std::endl;
     } else {
-        PIDLOG() << "open rdwr|creat " << filename << " failed with " << Strerror(-fd) << std::endl;
+        PIDLOG() << "open " << filename << " failed with " << Strerror(-fd) << std::endl;
     }
 }
 bool makeDir(const std::string& dirname, int expection)
@@ -113,9 +113,11 @@ bool writeFile(const std::string& filename, const std::string& verify_filename, 
     std::ifstream fin(verify_filename);
     ss << fin.rdbuf();
     fin.close();
-
     const std::string filecontent = ss.str();
+
+    //PIDLOG() << "Verify filecontent loaded. Prepare to open read file" << std::endl;
     int fd = open(filename.c_str(), O_RDWR | O_CREAT, 0600);
+    //PIDLOG() << "File opened with fd " << fd << std::endl;
     CHECK_FD(filename, fd);
     size_t filesize = filecontent.size();
     size_t size = write(fd, filecontent.c_str(), filesize);
@@ -130,10 +132,13 @@ bool readFile(const std::string& filename, const std::string& verify_filename, i
     ss << fin.rdbuf();
     fin.close();
     const std::string filecontent = ss.str();
+    //PIDLOG() << "Verify filecontent loaded. Prepare to open read file" << std::endl;
     int fd = open(filename.c_str(), O_RDWR, 0600);
+    //PIDLOG() << "File opened with fd " << fd << std::endl;
     CHECK_FD(filename, fd);
     memset(buffer, 0, BUFFER_SIZE);
     size_t filesize = filecontent.size();
+    //PIDLOG() << "Trying to read from fd" << std::endl;
     size_t size = read(fd, buffer, filesize);
     close(fd);
     PIDLOG() << "readFile " << filename << " finished with " << size << " read." << std::endl;

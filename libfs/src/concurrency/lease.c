@@ -45,7 +45,7 @@ char get_client_header(file_operation_t operation, inode_t type,
   header = (header | ((int)act << 3));
   return header;
 }
-void Time(char *timeBuffer) {
+void LocalTime(char *timeBuffer) {
   time_t rawtime;
   struct tm *timeinfo;
   time(&rawtime);
@@ -64,9 +64,13 @@ void Timeval(struct timeval tv, char *timeBuffer) {
   char tmbuf[64];
 
   nowtime = tv.tv_sec;
+  if(nowtime < 0) nowtime = (-1)*nowtime;
   nowtm = localtime(&nowtime);
   strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", nowtm);
-  sprintf(timeBuffer, "%s.%06ld", tmbuf, tv.tv_usec);
+  if(tv.tv_sec >= 0)
+    sprintf(timeBuffer, "%s.%06ld", tmbuf, tv.tv_usec);
+  else
+      sprintf(timeBuffer, "Minus-%s.%ld", tmbuf, tv.tv_usec);
   // mlfs_info("Received from Server: %s\n", buf);
 }
 mlfs_time_t send_requests(const char *path, file_operation_t operation,
@@ -74,7 +78,7 @@ mlfs_time_t send_requests(const char *path, file_operation_t operation,
 
   char header = get_client_header(operation, type, act);
   char current_time[60];
-  Time(current_time);
+  LocalTime(current_time);
   mlfs_info("[%s] %s %s %s : (%s)\n", current_time,
             act == acquire ? action_string[0] : action_string[1],
             operation_string[operation],
@@ -98,10 +102,11 @@ mlfs_time_t send_requests(const char *path, file_operation_t operation,
     }
     memcpy(&time, receive_data, sizeof(mlfs_time_t));
     receive_data[count] = '\0';
-    Time(current_time);
+    char current_time2 [60];
+    LocalTime(current_time2);
     char next_time[60];
     Timeval(time, next_time);
-    mlfs_info("[%s] Recived from server: %s\n", current_time, next_time);
+    mlfs_info("[%s] Recived from server: %s\n", current_time2, next_time);
   }
   return time;
 }
@@ -131,8 +136,9 @@ void mlfs_release_lease_inum(uint32_t inum, file_operation_t operation,
 
 int Acquire_lease(const char *path, mlfs_time_t *expiration_time,
                   file_operation_t operation, inode_t type) {
+  mlfs_info("Enter Acquire_lease: %c\n", ' ');
+  fflush(stdout);
   int ret = MLFS_LEASE_OK;
-
   mlfs_time_t current_time;
   mlfs_get_time(&current_time);
   current_time.tv_usec += MLFS_LEASE_RENEW_THRESHOLD;
@@ -141,29 +147,45 @@ int Acquire_lease(const char *path, mlfs_time_t *expiration_time,
     // Acquire lease if it is time to renewal or it is our first time to try to
     // get a lease
     mlfs_info("Inside if of Acquire_lease: %c\n", ' ');
+    fflush(stdout);
     do {
       *expiration_time = mlfs_acquire_lease(path, operation, type);
+      mlfs_info("Inside if of Acquire_lease: %c\n", '2');
+      fflush(stdout);
 
       if ((*expiration_time).tv_sec == 0 && (*expiration_time).tv_usec == 0) {
         // This means we hit the error
         make_digest_request_sync(MLFS_LEASE_PERCENT);
+        mlfs_info("Inside if of Acquire_lease: %c\n", '3');
+        fflush(stdout);        
         ret = MLFS_LEASE_ERR;
       }
 
       if ((*expiration_time).tv_sec < 0) {
+        mlfs_info("Inside if of Acquire_lease: %c\n", '4');
+        fflush(stdout);                
         ret = MLFS_LEASE_GIVE_UP;
-        sleep(abs((*expiration_time).tv_sec));
+        mlfs_time_t tmp, tmp2;
+        mlfs_get_time(&tmp);
+        mlfs_info("before sleep: %d s \t %ld us\n", tmp.tv_sec, tmp.tv_usec);
+        fflush(stdout);
+        lease_sleep(*expiration_time);
+        mlfs_get_time(&tmp2);
+        mlfs_info("after sleep: %d s \t %ld\n", tmp2.tv_sec, tmp2.tv_usec);        
+        mlfs_info("Acquire_lease wakeup from sleep %c\n", '1');
+        fflush(stdout);
       }
     } while ((*expiration_time).tv_sec < 0);
   }
 
-  if (ret == MLFS_LEASE_GIVE_UP && operation == mlfs_read_op)
-  {
+  if (ret == MLFS_LEASE_GIVE_UP && operation == mlfs_read_op) {
     // ret == MLFS_LEASE_GIVE_UP indicates that we slept before. This means that
     // there is some other process that has acquired the write lease of the sa
     // me file before. We have acquired the read lease now. We will request
     // digest so that our read lease can read the latest file change done
     // by some other process.
+    mlfs_info("Inside if of Acquire_lease: %c\n", '5');
+    fflush(stdout);            
     make_digest_request_sync(MLFS_LEASE_PERCENT);
   }
 
@@ -172,6 +194,7 @@ int Acquire_lease(const char *path, mlfs_time_t *expiration_time,
 
 int Acquire_lease_inum(uint32_t inum, mlfs_time_t *expiration_time,
                        file_operation_t operation, inode_t type) {
+  //mlfs_info("Enter Acquire_lease_inum: %c\n", ' ');
   int ret = MLFS_LEASE_OK;
   extern struct mlfs_lease_struct *mlfs_lease_table;
   struct mlfs_lease_struct *s;
@@ -204,13 +227,20 @@ int Acquire_lease_inum(uint32_t inum, mlfs_time_t *expiration_time,
 
       if ((*expiration_time).tv_sec < 0) {
         ret = MLFS_LEASE_GIVE_UP;
-        sleep(abs((*expiration_time).tv_sec));
+        mlfs_time_t tmp, tmp2;
+        mlfs_get_time(&tmp);
+        mlfs_info("before sleep: %ld\n", tmp.tv_usec);
+        fflush(stdout);
+        lease_sleep(*expiration_time);
+        mlfs_get_time(&tmp2);
+        mlfs_info("after sleep: %ld\n", tmp2.tv_usec);
+        mlfs_info("Acquire_lease_inum wakeup from sleep %c\n", '1');
+        fflush(stdout);              
       }
     } while ((*expiration_time).tv_sec < 0);
   }
 
-  if (ret == MLFS_LEASE_GIVE_UP && operation == mlfs_read_op)
-  {
+  if (ret == MLFS_LEASE_GIVE_UP && operation == mlfs_read_op) {
     // ret == MLFS_LEASE_GIVE_UP indicates that we slept before. This means that
     // there is some other process that has acquired the write lease of the sa
     // me file before. We have acquired the read lease now. We will request
@@ -218,6 +248,18 @@ int Acquire_lease_inum(uint32_t inum, mlfs_time_t *expiration_time,
     // by some other process.
     make_digest_request_sync(MLFS_LEASE_PERCENT);
   }
-  
+
   return ret;
+}
+
+void lease_sleep(struct timeval expiration_time)
+{
+  struct timeval tv;
+  /* mlfs_time_t current_time; */
+  /* mlfs_get_time(&current_time); */
+  /* expiration_time.tv_sec = abs(expiration_time.tv_sec); */
+  /* timersub(&expiration_time, &current_time, &tv); */
+  tv.tv_sec = 0;
+  tv.tv_usec = MLFS_LEASE_POLL_TIME;
+  select(0, NULL, NULL, NULL, &tv);
 }

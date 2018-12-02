@@ -30,7 +30,7 @@
 #define NOCREATE 0
 #define CREATE 1
 
-extern pthread_mutex_t lease_lock;
+extern mlfs_mutex_t lease_lock;
 extern mlfs_lease_t* mlfs_lease_global;
 
 int shm_fd = 0;
@@ -884,7 +884,8 @@ int digest_unlink(uint8_t from_dev, uint8_t to_dev, uint32_t inum)
     struct inode *inode;
     struct dinode dinode;
     int ret = 0;
-
+    mlfs_debug("unlink: to_dev = %d\n", to_dev);
+    mlfs_debug("unlink: g_root_dev = %d\n", g_root_dev);
     mlfs_assert(to_dev == g_root_dev);
 
     mlfs_debug("[UNLINK] (%d->%d) inum %d\n", from_dev, to_dev, inum);
@@ -1691,11 +1692,11 @@ static int digest_logs(uint8_t from_dev, int n_hdrs,
 
 void reset_lease() {
     mlfs_lease_t *lease;
-    pthread_mutex_lock(&lease_lock);
+    mlfs_mutex_lock(&lease_lock);
     for(lease = mlfs_lease_global; lease != NULL; lease = (mlfs_lease_t* )lease->hh.next) {
         lease->last_op_stat = unknown;
     }
-    pthread_mutex_unlock(&lease_lock);
+    mlfs_mutex_unlock(&lease_lock);
 }
 static void handle_digest_request(void *arg)
 {
@@ -1721,9 +1722,9 @@ static void handle_digest_request(void *arg)
     sscanf(buf, "|%s |%d|%u|%lu|%lu|",
             cmd_header, &dev_id, &digest_count, &digest_blkno, &end_blkno);
 
-    mlfs_debug("%s\n", cmd_header);
+    mlfs_info("%s\n", cmd_header);
     if (strcmp(cmd_header, "digest") == 0) {
-        mlfs_debug("digest command: dev_id %u, digest_blkno %lx, digest_count %u\n",
+        mlfs_info("digest command: dev_id %u, digest_blkno %lx, digest_count %u\n",
                 dev_id, digest_blkno, digest_count);
 
         if (enable_perf_stats) {
@@ -1764,11 +1765,11 @@ static void handle_digest_request(void *arg)
         sendto(sock_fd, response, MAX_SOCK_BUF, 0,
                 (struct sockaddr *)&digest_arg->cli_addr, sizeof(struct sockaddr_un));
 
+        reset_lease();
         show_storage_stats();
 
         if (enable_perf_stats)
             show_kernfs_stats();
-        reset_lease();
     } else if (strcmp(cmd_header, "lru") == 0) {
         // only used for debugging.
         if (0) {
@@ -1901,7 +1902,7 @@ static void wait_for_event(void)
 void shutdown_fs(void)
 {
     printf("Finalize FS\n");
-    pthread_mutex_destroy(&lease_lock);
+    mlfs_mutex_destroy(&lease_lock);
     device_shutdown();
     return ;
 }
@@ -2049,7 +2050,7 @@ void init_fs(void)
 #endif
     // lease_server
     init_lease_global();
-    if (pthread_mutex_init(&lease_lock, NULL) != 0) {
+    if (mlfs_mutex_init(&lease_lock) != 0) {
         panic("Lease mutex initialization failed");
     }
 

@@ -69,12 +69,6 @@ void accept_and_add_new() {
 	if (errno != EAGAIN && errno != EWOULDBLOCK)
 		perror("accept");
 }
-// struct mlfs_lease_call {
-//     lease_action_t action;
-//     const char* path;
-//     file_operation_t operation;
-//     inode_t type;
-// };
 
 struct mlfs_lease_call get_header(char c) {
 	struct mlfs_lease_call header;
@@ -100,11 +94,27 @@ void CurrentTime(char* timeBuffer) {
     sprintf ( timeBuffer,  "%d:%d:%d.%06ld", hour, minute, second , tv.tv_usec );
     //mlfs_info( " [ %d:%d:%d ] ", hour, minute, second);
 }
+void myTimeval(struct timeval tv, char *timeBuffer) {
+        time_t nowtime;
+        struct tm *nowtm;
+        char tmbuf[64];
+                 
+        nowtime = tv.tv_sec;
+        if(nowtime < 0) nowtime = (-1)*nowtime;
+        nowtm = localtime(&nowtime);
+        strftime(tmbuf, sizeof(tmbuf), "%Y-%m-%d %H:%M:%S", nowtm);
+        if(tv.tv_sec >= 0)
+            sprintf(timeBuffer, "%s.%ld", tmbuf, tv.tv_usec);
+        else
+            sprintf(timeBuffer, "Minus-%s.%ld", tmbuf, tv.tv_usec);
+                                    // mlfs_info("Received from Server: %s\n", buf);
+                                    //   
+}
 void process_new_data(int fd) {
 	ssize_t count;
 	char buf[buf_size];//header 1byte, path 4096bytes 
 
-	while ((count = read(fd, buf, sizeof(buf) ))) {
+	while ((count = recv(fd, buf, sizeof(buf), 0))) {
 		if (count == -1) {
 			if (errno == EAGAIN)
 				return;
@@ -121,14 +131,19 @@ void process_new_data(int fd) {
 		char path[path_size];
 		memcpy(path, buf+sizeof(char)+sizeof(pid_t), sizeof(path));
         path[count-sizeof(char)-sizeof(pid_t)] = '\0';
-        mlfs_info("[%s] Receive from client: %s %s %s (%s)\n", timeBuffer, header.action == acquire? action_str[0]: action_str[1], operation_str[header.operation], header.type == T_FILE? type_str[0]:type_str[1], path);
+        mlfs_info("[%s] Receive from client %d: %s %s %s (%s)\n", timeBuffer, pid, header.action == acquire? action_str[0]: action_str[1], operation_str[header.operation], header.type == T_FILE? type_str[0]:type_str[1], path);
         //mlfs_info("[%s] Receive from client: %s %s %s (%s) \n", timeBuffer, action_str[0], operation_str[header.operation], header.type == T_FILE ? type_str[0] : type_str[1], path);
 
 		if(header.action == acquire) {
 			char send_data[buf_size];
 			mlfs_time_t time = lease_acquire ((const char*)path, header.operation, header.type, pid);
 			memcpy(send_data, &time, sizeof(mlfs_time_t));
-			if(send(fd, &send_data, sizeof(mlfs_time_t), 0) == -1) {
+			char timeBuf[60];
+            myTimeval(time, timeBuf);
+            char timeBuffer2[60];
+            CurrentTime(timeBuffer2);
+            mlfs_info("[%s] Timeval received from lease_manager: %s\n", timeBuffer2, timeBuf);
+            if(send(fd, &send_data, sizeof(mlfs_time_t), 0) == -1) {
 				perror("send");
 				break;
 			}

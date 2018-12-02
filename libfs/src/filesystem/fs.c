@@ -1090,7 +1090,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
   lease_ret = Acquire_lease_inum(ip->inum, expiration_time, mlfs_read_op, T_FILE);
   if (lease_ret == MLFS_LEASE_ERR)
   {
-    panic("File is re-created or deleted by other processes");
+    mlfs_info("File is re-created or deleted by other processes%c\n", ' ');
     return -ENOENT;
   }
   if (lease_ret == MLFS_LEASE_GIVE_UP)
@@ -1145,7 +1145,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
   lease_ret = Acquire_lease_inum(ip->inum, expiration_time, mlfs_read_op, T_FILE);
   if (lease_ret == MLFS_LEASE_ERR)
   {
-    panic("File is re-created or deleted by other processes");
+    mlfs_info("File is re-created or deleted by other processes %c\n", ' ');
     return -ENOENT;
   }
 
@@ -1157,6 +1157,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 
 	// NVM case: no read caching.
 	if (bmap_req.dev == g_root_dev) {
+              mlfs_info("Enter NVM case %c\n", '1');
 		bh->b_offset = off - off_aligned;
 		bh->b_data = dst;
 		bh->b_size = io_size;
@@ -1166,6 +1167,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
 	} 
 	// SSD and HDD cache: do read caching.
 	else {
+                        mlfs_info("Enter NVM case %c\n", '2');
 		mlfs_assert(_fcache_block == NULL);
 
 #if 0
@@ -1201,7 +1203,7 @@ int do_unaligned_read(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_
   lease_ret = Acquire_lease_inum(ip->inum, expiration_time, mlfs_read_op, T_FILE);
   if (lease_ret == MLFS_LEASE_ERR)
   {
-    panic("File is re-created or deleted by other processes");
+    mlfs_info("File is re-created or deleted by other processes %c\n", ' ');
     return -ENOENT;
   }
 
@@ -1373,6 +1375,7 @@ do_global_search:
 
 	// NVM case: no read caching.
 	if (bmap_req.dev == g_root_dev) {
+              mlfs_info("Enter NVM case %c\n", '3');          
 		bh = bh_get_sync_IO(bmap_req.dev, bmap_req.block_no, BH_NO_DATA_ALLOC);
 		bh->b_size = (bmap_req.blk_count_found << g_block_size_shift);
 		bh->b_offset = 0;
@@ -1383,6 +1386,7 @@ do_global_search:
 	} 
 	// SSD and HDD cache: do read caching.
 	else {
+                        mlfs_info("Enter NVM case %c\n", '4');          
 		offset_t cur, l;
 
 #if 0
@@ -1523,10 +1527,17 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
   lease_ret = Acquire_lease_inum(ip->inum, &expiration_time, mlfs_read_op, T_FILE);
   if (lease_ret == MLFS_LEASE_ERR)
   {
-    panic("File is re-created or deleted by other processes");
+    mlfs_info("File is re-created or deleted by other processes%c\n", ' ');
     return -ENOENT;
   }
 
+#ifdef LEASE_TIMEOUT_TEST
+  struct timeval tv;
+  tv.tv_sec = 10;
+  tv.tv_usec = 0;
+  select(0, NULL, NULL, NULL, &tv);
+#endif
+  
 	if (off + io_size > ip->size)
 		io_size = ip->size - off;
 
@@ -1635,13 +1646,7 @@ int readi(struct inode *ip, uint8_t *dst, offset_t off, uint32_t io_size)
 		ret += io_done;
 	}
 
-  mlfs_time_t current_time;
-  mlfs_get_time(&current_time);
-	if (timercmp(&current_time, &expiration_time, >) == 0)
-	{
-		// We release the read lease if we finish our work before the expiration_time
-		// release_read_lease(ip->inum);
-	}
+        mlfs_release_lease_inum(ip->inum, mlfs_read_op, T_FILE);
 
 	return ret;
 }

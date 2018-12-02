@@ -15,7 +15,7 @@ LIBFS_DIR := $(CURDIR)/../libfs
 #  Source and Object files in their  module directories
 ########
 SRC	:= $(foreach sdir, $(SRC_DIR), $(wildcard $(sdir)/*.c))
-SRC := $(filter-out %mkfs.c %kernf.c,$(SRC))
+SRC := $(filter-out %mkfs.c %kernf.c %lease.c,$(SRC))
 OBJ	:= $(patsubst %.c,build/%.o,$(SRC))
 HDER := $(foreach sdir, $(SRC_DIR), $(wildcard $(sdir)/*.h))
 
@@ -50,9 +50,9 @@ MLFS_FLAGS += -DBALLOC
 #MLFS_FLAGS += -DMIGRATION
 #MLFS_FLAGS += -DEXPERIMENTAL
 
-#DEBUG = -g -O0 
+DEBUG = -g -O0 
 #DEBUG = -g -Ofast
-DEBUG = -O3
+#DEBUG = -O3
 
 ########
 #  vpath and compile function for each file
@@ -60,7 +60,7 @@ DEBUG = -O3
 vpath %.c $(SRC_DIR)
 
 #CC = clang-3.8
-CC = gcc -Wall
+CC = gcc 
 CXX = g++ -std=c++11
 
 define make-goal
