@@ -50,14 +50,15 @@ MLFS_FLAGS = -DLIBFS -DMLFS_INFO
 #MLFS_FLAGS += -DCONCURRENT
 MLFS_FLAGS += -DINVALIDATION
 MLFS_FLAGS += -DKLIB_HASH
+#MLFS_FLAGS += -DLEASE_TIMEOUT_TEST
 #MLFS_FLAGS += -DUSE_SSD
 #MLFS_FLAGS += -DUSE_HDD
 #MLFS_FLAGS += -DMLFS_LOG
 
 #DEBUG = -g3 -O0 
 #DEBUG = -O0 -gdwarf-2 -g3 -rdynamic
-#DEBUG = -g -Ofast
-DEBUG = -O3
+DEBUG = -g -Ofast
+#DEBUG = -O3
 
 ########
 #  vpath and compile function for each file

@@ -1804,8 +1804,10 @@ static void wait_for_event(void)
 
     unlink(SRV_SOCK_PATH);
 
-    if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
+    if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("bind error:");
         panic("bind error");
+    }
 
     // make it non-blocking
     flags = fcntl(sock_fd, F_GETFL, 0);

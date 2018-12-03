@@ -21,7 +21,7 @@
 #define buf_size 50100
 #define path_size 4097
 #define MAXEVENTS 64
-#define SOCKET_NAME "/tmp/mlfs-lease/connection.socket"
+#define LEASE_SOCKET_NAME "/tmp/mlfs-lease/connection.socket"
 
 
 void run_lease_server(void *arg);

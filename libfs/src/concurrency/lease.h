@@ -21,7 +21,8 @@
 
 // lease_client
 #define data_size 4102
-#define SOCKET_NAME "/tmp/mlfs-lease/connection.socket"
+#define LEASE_CLIENT_NAME "/tmp/mlfs-lease.client"
+#define LEASE_SERVER_NAME "/tmp/mlfs-lease.server"
 
 #define MLFS_LEASE_EXPIRATION_TIME_INITIALIZER { (0, 0) }
 enum lease_action { acquire = 0, release = 1 };

@@ -9,31 +9,36 @@
 #include <sys/un.h>
 #include <time.h>
 #include <unistd.h>
-int socket_fd;
+int lease_client_socket;
 struct mlfs_lease_struct *mlfs_lease_table = NULL;
 
 char *action_string[2] = {"acquire", "release"};
 char *operation_string[4] = {"mlfs_read_op", "mlfs_write_op", "mlfs_create_op",
                              "mlfs_delete_op"};
 char *type_string[2] = {"T_FILE", "T_DIR"};
+struct sockaddr_un lease_client_addr;
+struct sockaddr_un lease_server_addr;
 
 void init_lease_client() {
-  struct sockaddr_un addr;
-
-  if ((socket_fd = socket(AF_UNIX, SOCK_SEQPACKET, 0)) == -1) {
+  if ((lease_client_socket = socket(AF_UNIX, SOCK_DGRAM, 0)) == -1) {
     perror("Socket");
     exit(1);
   }
-  memset(&addr, 0, sizeof(struct sockaddr_un));
+  
+  memset(&lease_client_addr, 0, sizeof(struct sockaddr_un));
+  lease_client_addr.sun_family = AF_UNIX;
+  snprintf(lease_client_addr.sun_path, sizeof(lease_client_addr.sun_path), "%s%d", LEASE_CLIENT_NAME, getpid());
 
-  addr.sun_family = AF_UNIX;
-  strncpy(addr.sun_path, SOCKET_NAME, sizeof(addr.sun_path) - 1);
-
-  if (connect(socket_fd, (const struct sockaddr *)&addr,
-              sizeof(struct sockaddr_un)) == -1) {
-    perror("Connect");
+  unlink(lease_client_addr.sun_path);
+  if(bind(lease_client_socket, (struct sockaddr*) &lease_client_addr, sizeof(lease_client_addr))) {
+    perror("Error binding client error");
     exit(1);
   }
+
+  memset(&lease_server_addr, 0, sizeof(struct sockaddr_un));
+  lease_server_addr.sun_family = AF_UNIX;
+  snprintf(lease_server_addr.sun_path, sizeof(lease_server_addr.sun_path), "%s", LEASE_SERVER_NAME);
+
 }
 char get_client_header(file_operation_t operation, inode_t type,
                        lease_action_t act) {
@@ -78,6 +83,7 @@ mlfs_time_t send_requests(const char *path, file_operation_t operation,
 
   char header = get_client_header(operation, type, act);
   char current_time[60];
+  socklen_t server_addr_len;
   LocalTime(current_time);
   mlfs_info("[%s] %s %s %s : (%s)\n", current_time,
             act == acquire ? action_string[0] : action_string[1],
@@ -89,15 +95,15 @@ mlfs_time_t send_requests(const char *path, file_operation_t operation,
   memcpy(send_data + sizeof(char), &pid, sizeof(pid_t));
   memcpy(send_data + sizeof(char) + sizeof(pid_t), path, strlen(path));
 
-  if (send(socket_fd, send_data,
-           sizeof(char) + sizeof(pid_t) + strlen(path) + 1, 0) < 0) {
+  if (sendto(lease_client_socket, send_data,
+           sizeof(char) + sizeof(pid_t) + strlen(path) + 1, 0, (struct sockaddr *)&lease_server_addr, sizeof(lease_server_addr)) < 0) {
     perror("Error when sending to Read_Socket:");
   }
   mlfs_time_t time;
   if (act == acquire) {
     char receive_data[data_size];
     int count = 0;
-    if ((count = recv(socket_fd, receive_data, sizeof(receive_data), 0)) < 0) {
+    if ((count = recvfrom(lease_client_socket, receive_data, sizeof(receive_data), 0, (struct sockaddr *)&lease_server_addr, &server_addr_len)) < 0) {
       perror("Error when receiving from Read_Socket:");
     }
     memcpy(&time, receive_data, sizeof(mlfs_time_t));
@@ -106,12 +112,12 @@ mlfs_time_t send_requests(const char *path, file_operation_t operation,
     LocalTime(current_time2);
     char next_time[60];
     Timeval(time, next_time);
-    mlfs_info("[%s] Recived from server: %s\n", current_time2, next_time);
+    mlfs_info("[%s] Received from server: %s\n", current_time2, next_time);
   }
   return time;
 }
 
-void shutdown_sock() { close(socket_fd); }
+void shutdown_sock() { close(lease_client_socket); }
 
 mlfs_time_t mlfs_acquire_lease(const char *path, file_operation_t operation,
                                inode_t type) {
