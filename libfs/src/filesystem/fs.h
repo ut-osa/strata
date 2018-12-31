@@ -559,7 +559,8 @@ void stati(struct inode*, struct stat *);
 int add_to_log(struct inode*, uint8_t*, offset_t, uint32_t);
 int check_log_invalidation(struct fcache_block *_fcache_block);
 uint8_t *get_dirent_block(struct inode *dir_inode, offset_t offset);
-void show_libfs_stats(void);
+void show_libfs_stats(const char *title);
+void reset_libfs_stats();
 
 //APIs for debugging.
 uint32_t dbg_get_iblkno(uint32_t inum);

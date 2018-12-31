@@ -1097,7 +1097,7 @@ void handle_digest_response(char *ack_cmd)
 	clear_digesting();
 
 	if (enable_perf_stats) 
-		show_libfs_stats();
+		show_libfs_stats("digest response");
 }
 
 #define EVENT_COUNT 2

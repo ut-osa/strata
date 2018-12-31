@@ -22,7 +22,8 @@ extern unsigned char initialized;
 
 //utils
 int bms_search(char *txt, char *pat);
-
+void show_libfs_stats(const char *title);
+void reset_libfs_stats();
 #ifdef __cplusplus
 }
 #endif

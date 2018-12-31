@@ -62,13 +62,19 @@ static inline float tsc_to_ms(uint64_t tsc)
 	return (float)tsc / (clock_speed_mhz * 1000.0);
 }
 
-void show_libfs_stats(void)
+void reset_libfs_stats(void)
+{
+    memset(&g_perf_stats, 0, sizeof(libfs_stat_t));
+}
+
+void show_libfs_stats(const char *title)
 {
 	printf("\n");
-	printf("----------------------- libfs statistics\n");
-	// For some reason, floating point operation causes segfault in filebench
+	printf("----------------------- %s libfs statistics\n", title);
+	// For some reason, floating point operation causes segfault in filebench 
 	// worker thread.
-	printf("wait on digest    : %.3f ms\n", tsc_to_ms(g_perf_stats.digest_wait_tsc));
+
+    printf("wait on digest    : %.3f ms\n", tsc_to_ms(g_perf_stats.digest_wait_tsc));
 	printf("inode allocation  : %.3f ms\n", tsc_to_ms(g_perf_stats.ialloc_tsc));
 	printf("bcache search     : %.3f ms\n", tsc_to_ms(g_perf_stats.bcache_search_tsc));
 	printf("search l0 tree    : %.3f ms\n", tsc_to_ms(g_perf_stats.l0_search_tsc));
@@ -121,8 +127,8 @@ void shutdown_fs(void)
 
 	enable_perf_stats = _enable_perf_stats;
 
-	if (enable_perf_stats)
-		show_libfs_stats();
+	if (enable_perf_stats) 
+		show_libfs_stats("shutdown fs");
 
 	/*
 	ret = munmap(mlfs_slab_pool_shared, SHM_SIZE);
@@ -325,10 +331,14 @@ void init_fs(void)
 
 		perf_profile = getenv("MLFS_PROFILE");
 
-		if (perf_profile)
+		if (perf_profile) {
 			enable_perf_stats = 1;
-		else
+            mlfs_info("%s", " enable profile\n");
+        }
+		else {
 			enable_perf_stats = 0;
+            mlfs_info("%s", " disable profile\n");
+        }
 
 		memset(&g_perf_stats, 0, sizeof(libfs_stat_t));
 
