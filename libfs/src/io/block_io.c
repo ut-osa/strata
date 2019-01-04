@@ -100,8 +100,9 @@ void device_init(void)
 void device_shutdown(void)
 {
 	int i;
-	for (i = 1; i < g_n_devices + 1; i++) 
-		bdev_free(g_bdev[i]);
+	for (i = 1; i < g_n_devices + 1; i++)
+        if (g_bdev[i])
+		    bdev_free(g_bdev[i]);
 
 	return;
 }
