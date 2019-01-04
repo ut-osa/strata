@@ -27,6 +27,9 @@ extern "C" {
 
 #define ENABLE_PERF_MODEL
 #define ENABLE_BANDWIDTH_MODEL
+#ifdef STORAGE_PERF
+uint64_t storage_tsc;
+#endif
 
 // performance parameters
 /* SCM read extra latency than DRAM */
@@ -196,18 +199,26 @@ uint8_t *dax_init(uint8_t dev, char *dev_path)
 
 int dax_read(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t io_size)
 {
+#ifdef STORAGE_PERF
+    uint64_t tsc_begin = asm_rdtscp();
+#endif
 	memmove(buf, dax_addr[dev] + (blockno * g_block_size_bytes), io_size);
 
 	perfmodel_add_delay(1, io_size);
 
 	//mlfs_debug("read block number %d\n", blockno);
-
+#ifdef STORAGE_PERF
+    storage_tsc += asm_rdtscp() - tsc_begin;
+#endif
 	return io_size;
 }
 
 int dax_read_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offset, 
 		uint32_t io_size)
 {
+#ifdef STORAGE_PERF
+    uint64_t tsc_begin = asm_rdtscp();
+#endif
 	//copy and flush data to pmem.
 	memmove(buf, dax_addr[dev] + (blockno * g_block_size_bytes) + offset, 
 			io_size);
@@ -218,7 +229,9 @@ int dax_read_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offse
 	mlfs_debug("read block number %lu, address %lu size %u\n", 
 			blockno, (blockno * g_block_size_bytes) + offset, io_size);
 	*/
-
+#ifdef STORAGE_PERF
+    storage_tsc += asm_rdtscp() - tsc_begin;
+#endif
 	return io_size;
 }
 
@@ -227,6 +240,9 @@ int dax_read_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offse
  * it call dax_commit to drain changes (like pmem_memmove_persist) */
 int dax_write(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t io_size)
 {
+#ifdef STORAGE_PERF
+    uint64_t tsc_begin = asm_rdtscp();
+#endif
 	addr_t addr = (addr_t)dax_addr[dev] + (blockno << g_block_size_shift);
 
 	//copy and flush data to pmem.
@@ -238,13 +254,18 @@ int dax_write(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t io_size)
 
 	mlfs_muffled("write block number %lu, address %lu size %u\n", 
 			blockno, (blockno * g_block_size_bytes), io_size);
-
+#ifdef STORAGE_PERF
+    storage_tsc += asm_rdtscp() - tsc_begin;
+#endif
 	return io_size;
 }
 
 int dax_write_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offset, 
 		uint32_t io_size)
 {
+#ifdef STORAGE_PERF
+    uint64_t tsc_begin = asm_rdtscp();
+#endif
 	addr_t addr = (addr_t)dax_addr[dev] + (blockno << g_block_size_shift) + offset;
 
 	//copy and flush data to pmem.
@@ -256,7 +277,9 @@ int dax_write_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offs
 
 	mlfs_muffled("write block number %lu, address %lu size %u\n", 
 			blockno, (blockno * g_block_size_bytes) + offset, io_size);
-
+#ifdef STORAGE_PERF
+    storage_tsc += asm_rdtscp() - tsc_begin;
+#endif
 	return io_size;
 }
 
@@ -267,9 +290,15 @@ int dax_commit(uint8_t dev)
 
 int dax_erase(uint8_t dev, addr_t blockno, uint32_t io_size)
 {
+#ifdef STORAGE_PERF
+    uint64_t tsc_begin = asm_rdtscp();
+#endif
 	memset(dax_addr[dev] + (blockno * g_block_size_bytes), 0, io_size);
 
 	perfmodel_add_delay(0, io_size);
+#ifdef STORAGE_PERF
+    storage_tsc += asm_rdtscp() - tsc_begin;
+#endif
 }
 
 void dax_exit(uint8_t dev)

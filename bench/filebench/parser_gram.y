@@ -55,6 +55,9 @@
 #include "multi_client_sync.h"
 
 #include "mlfs/mlfs_interface.h"
+#include <unistd.h>
+#include "kernfs_interface.h"
+pid_t kernfs_pid;
 
 /* yacc and lex externals */
 extern FILE *yyin;
@@ -1480,6 +1483,9 @@ worker_mode(struct fbparams *fbparams)
 	if (ret)
 		exit(1);
 
+    if (kill(kernfs_pid, SIGUSR2) != 0) {
+        perror("SIGUSR2 kernfs failed");
+    }
 	/* execute corresponding procflow */
 	ret = procflow_exec(fbparams->procname, fbparams->instance);
 	if (ret < 0) {
@@ -1487,7 +1493,6 @@ worker_mode(struct fbparams *fbparams)
 		    fbparams->procname);
 		exit(1);
 	}
-
 	exit(0);
 }
 
@@ -1586,7 +1591,6 @@ parser_abort(int arg)
 static void
 master_mode(struct fbparams *fbparams) {
 	int ret;
-
 	printf("Filebench Version %s\n", FILEBENCH_VERSION);
 
 	yyin = fopen(fbparams->fscriptname, "r");
@@ -1635,8 +1639,21 @@ init_common()
 	disable_aslr();
 	my_pid = getpid();
 	fb_set_rlimit();
+    FILE *f = fopen(KERNFSPIDPATH, "r");
+    if (f == NULL) {
+        perror("can't open kernfs pid file");
+        exit(-1);
+    }
+    fscanf(f, "%d", &kernfs_pid);
+    printf("kernfs id is %d\n", kernfs_pid);
+    fclose(f);
 }
 
+void sigusr_handler(int signum) {
+ if (signum == SIGUSR1) {
+    show_libfs_stats("worker sigusr1");
+ }
+}
 /*
  * Entry point for Filebench. Processes command line arguments. The -f option
  * will read in a workload file (the full name and extension must must be
@@ -1665,6 +1682,14 @@ main(int argc, char *argv[])
 
 	if (mode == FB_MODE_CVARS)
 		cvars_mode(&fbparams);
+
+    printf("getchar to continue\n");
+    getchar();
+    struct sigaction new_action;
+    new_action.sa_handler = sigusr_handler;
+    sigemptyset(&new_action.sa_mask);
+    new_action.sa_flags = 0;
+    sigaction(SIGUSR1, &new_action, NULL);
 
 	init_common();
 
@@ -2601,6 +2626,8 @@ parser_run(cmd_t *cmd)
 	if (mlfs) {
 		while(make_digest_request_async(100) == -EBUSY);
 		wait_on_digesting();
+        show_libfs_stats("master reset");
+        reset_libfs_stats();
 	}
 
 	proc_create();
@@ -2621,6 +2648,7 @@ parser_run(cmd_t *cmd)
 	filebench_log(LOG_INFO, "Run took %d seconds...", timeslept);
 	stats_snap();
 	proc_shutdown();
+    kill(kernfs_pid, SIGINT);
 	parser_filebench_shutdown((cmd_t *)0);
 }
 

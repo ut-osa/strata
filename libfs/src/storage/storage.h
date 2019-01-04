@@ -95,6 +95,9 @@ void hdd_exit(uint8_t dev);
 
 extern uint64_t *bandwidth_consumption;
 
+#ifdef STORAGE_PERF
+extern uint64_t storage_tsc;
+#endif
 #ifdef __cplusplus
 }
 #endif

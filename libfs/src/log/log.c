@@ -1096,8 +1096,8 @@ void handle_digest_response(char *ack_cmd)
 	//xchg_8(&g_fs_log->digesting, 0);
 	clear_digesting();
 
-	if (enable_perf_stats) 
-		show_libfs_stats();
+	//if (enable_perf_stats)
+	//	show_libfs_stats("digest response");
 }
 
 #define EVENT_COUNT 2

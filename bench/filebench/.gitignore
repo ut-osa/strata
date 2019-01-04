@@ -1,0 +1,7 @@
+*.la
+*.lo
+*.o
+*.out
+*.cache
+*.Plo
+.deps

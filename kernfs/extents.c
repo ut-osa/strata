@@ -400,7 +400,13 @@ static struct buffer_head *read_extent_tree_block(handle_t *handle,
 	struct buffer_head *bh;
 	int err;
 
+#ifdef STORAGE_PERF
+    uint64_t tsc_begin = asm_rdtscp();
+#endif
 	bh = fs_bread(handle->dev, pblk, &err);
+#ifdef STORAGE_PERF
+    g_perf_stats.path_storage_tsc += asm_rdtscp() - tsc_begin;
+#endif
 	if (!bh) 
 		return (struct buffer_head *)ERR_PTR(-ENOMEM);
 
@@ -2745,6 +2751,11 @@ int mlfs_ext_get_blocks(handle_t *handle, struct inode *inode,
 
 	create = flags & MLFS_GET_BLOCKS_CREATE_DATA;
 
+#ifdef KERNFS
+	if (enable_perf_stats)
+		tsc_start = asm_rdtscp();
+#endif
+
 	/*mutex_lock(&inode->truncate_mutex);*/
 
 	if (create) {
@@ -2789,11 +2800,6 @@ int mlfs_ext_get_blocks(handle_t *handle, struct inode *inode,
 #endif
 find_ext_path:
 
-#ifdef KERNFS
-	if (enable_perf_stats) 
-		tsc_start = asm_rdtscp();
-#endif
-
 	/* find extent for this block */
 	path = mlfs_find_extent(handle, inode, map->m_lblk, NULL, 0);
 	if (IS_ERR(path)) {
@@ -2801,11 +2807,6 @@ find_ext_path:
 		path = NULL;
 		goto out2;
 	}
-
-#ifdef KERNFS
-	if (enable_perf_stats) 
-		g_perf_stats.path_search_tsc += (asm_rdtscp() - tsc_start);
-#endif
 
 	depth = ext_depth(handle, inode);
 
@@ -2969,6 +2970,11 @@ out2:
 	}
 
 	/*mutex_unlock(&inode->truncate_mutex);*/
+
+#ifdef KERNFS
+	if (enable_perf_stats)
+		g_perf_stats.path_search_tsc += (asm_rdtscp() - tsc_start);
+#endif
 
 	return err ? err : allocated;
 }

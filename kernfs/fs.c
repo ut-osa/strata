@@ -157,35 +157,74 @@ struct f_digest_worker_arg {
 	f_replay_t *f_item;
 };
 
-
+void reset_kernfs_stats(void)
+{
+	memset(&g_perf_stats, 0, sizeof(kernfs_stats_t));
+}
 void show_kernfs_stats(void)
 {
-	float clock_speed_mhz = get_cpu_clock_speed();
-	uint64_t n_digest = g_perf_stats.n_digest == 0 ? 1.0 : g_perf_stats.n_digest;
+	//float clock_speed_mhz = get_cpu_clock_speed();
+	uint64_t n_digest = g_perf_stats.n_digest == 0 ? 1 : g_perf_stats.n_digest;
 
 	printf("\n");
 	//printf("CPU clock : %.3f MHz\n", clock_speed_mhz);
 	printf("----------------------- kernfs statistics\n");
-	printf("digest       : %.3f ms\n",
-			g_perf_stats.digest_time_tsc / (clock_speed_mhz * 1000.0));
-	printf("- replay     : %.3f ms\n",
-			g_perf_stats.replay_time_tsc / (clock_speed_mhz * 1000.0));
-	printf("- apply      : %.3f ms\n",
-			g_perf_stats.apply_time_tsc / (clock_speed_mhz * 1000.0));
-	printf("-- inode digest : %.3f ms\n",
-			g_perf_stats.digest_inode_tsc / (clock_speed_mhz * 1000.0));
-	printf("-- dir digest   : %.3f ms\n",
-			g_perf_stats.digest_dir_tsc / (clock_speed_mhz * 1000.0));
-	printf("-- file digest  : %.3f ms\n",
-			g_perf_stats.digest_file_tsc / (clock_speed_mhz * 1000.0));
+	printf("digest       : %lu\n",
+			g_perf_stats.digest_time_tsc);
+	printf("- replay     : %lu\n",
+			g_perf_stats.replay_time_tsc);
+	printf("- apply      : %lu\n",
+			g_perf_stats.apply_time_tsc);
+	printf("-- inode digest : %lu\n",
+			g_perf_stats.digest_inode_tsc);
+	printf("-- dir digest   : %lu\n",
+			g_perf_stats.digest_dir_tsc);
+	printf("-- file digest  : %lu\n",
+			g_perf_stats.digest_file_tsc);
 	printf("n_digest        : %lu\n", g_perf_stats.n_digest);
 	printf("n_digest_skipped: %lu (%.1f %%)\n",
 			g_perf_stats.n_digest_skipped,
 			((float)g_perf_stats.n_digest_skipped * 100.0) / (float)n_digest);
-	printf("path search    : %.3f ms\n",
-			g_perf_stats.path_search_tsc / (clock_speed_mhz * 1000.0));
+	printf("path search    : %lu\n",
+			g_perf_stats.path_search_tsc);
 	printf("total migrated : %lu MB\n", g_perf_stats.total_migrated_mb);
 	printf("--------------------------------------\n");
+#ifdef STORAGE_PERF
+    printf("storage_dax: %lu\n", storage_tsc);
+    printf("path storage: %lu\n", g_perf_stats.path_storage_tsc);
+    /*
+     * *------------------------------*
+     * |   digest (D)                 |
+     * |  *-----------------*         |
+     * |  |  extents        |         |
+     * |  |  (E)     *--------------* |
+     * |  |          | (SE) . (SD)  | |
+     * |  |          |  storage_dax | |
+     * |  |          |      .       | |
+     * |  |          *--------------* |
+     * |  |                 |         |
+     * |  *-----------------*         |
+     * *------------------------------*
+     *
+     * ------------------------------------
+     * !All time (D,E,SE,D) are exclusive!
+     * $1 = path_search_tsc  == (E+SE)
+     * $2 = path_storage_tsc == (SE)
+     * $3 = storage_tsc      == (SE+SD)
+     * $4 = digest_time_tsc  == (D+E+SE+SD)
+     * ------------------------------------
+     * metrics:
+     * path/digest: (E+SE)/(D+E+SE+SD) == $1/$4
+     * path/digest(without storage): E/D == ($1-$2)/($4-($1-$2)-$3)
+     */
+    double E = (g_perf_stats.path_search_tsc - g_perf_stats.path_storage_tsc);
+    printf("path/digest(without storage) is %f\n",
+            E/(g_perf_stats.digest_time_tsc - E - storage_tsc));
+#endif
+    printf("path/digest is %f\n", (double)g_perf_stats.path_search_tsc/g_perf_stats.digest_time_tsc);
+    printf("");
+	printf("--------------------------------------\n");
+    show_storage_stats();
 }
 
 void show_storage_stats(void)
@@ -1697,6 +1736,7 @@ static void handle_digest_request(void *arg)
 	addr_t digest_blkno, end_blkno;
 	uint32_t digest_count;
 	addr_t next_hdr_of_digested_hdr;
+    uint64_t tsc_begin;
 
 	memset(cmd_header, 0, 12);
 
@@ -1715,22 +1755,22 @@ static void handle_digest_request(void *arg)
 				dev_id, digest_blkno, digest_count);
 
 		if (enable_perf_stats) {
-			g_perf_stats.digest_time_tsc = asm_rdtscp();
-			g_perf_stats.path_search_tsc = 0;
-			g_perf_stats.replay_time_tsc = 0;
-			g_perf_stats.apply_time_tsc= 0;
-			g_perf_stats.digest_dir_tsc = 0;
-			g_perf_stats.digest_file_tsc = 0;
-			g_perf_stats.digest_inode_tsc = 0;
-			g_perf_stats.n_digest_skipped = 0;
-			g_perf_stats.n_digest = 0;
+			tsc_begin = asm_rdtscp();
+			//g_perf_stats.path_search_tsc = 0;
+			//g_perf_stats.replay_time_tsc = 0;
+			//g_perf_stats.apply_time_tsc= 0;
+			//g_perf_stats.digest_dir_tsc = 0;
+			//g_perf_stats.digest_file_tsc = 0;
+			//g_perf_stats.digest_inode_tsc = 0;
+			//g_perf_stats.n_digest_skipped = 0;
+			//g_perf_stats.n_digest = 0;
 		}
 
 		digest_count = digest_logs(dev_id, digest_count, &digest_blkno, &rotated);
 
 		if (enable_perf_stats)
-			g_perf_stats.digest_time_tsc =
-				(asm_rdtscp() - g_perf_stats.digest_time_tsc);
+			g_perf_stats.digest_time_tsc +=
+				(asm_rdtscp() - tsc_begin);
 
 		mlfs_debug("-- Total used block %d\n",
 				bitmap_weight((uint64_t *)sb[g_root_dev].s_blk_bitmap->bitmap,
@@ -1752,10 +1792,11 @@ static void handle_digest_request(void *arg)
 		sendto(sock_fd, response, MAX_SOCK_BUF, 0,
 				(struct sockaddr *)&digest_arg->cli_addr, sizeof(struct sockaddr_un));
 
-		show_storage_stats();
+		/*show_storage_stats();
 
 		if (enable_perf_stats)
 			show_kernfs_stats();
+        */
 
 	} else if (strcmp(cmd_header, "lru") == 0) {
 		// only used for debugging.
@@ -2022,8 +2063,9 @@ void init_fs(void)
 
 	perf_profile = getenv("MLFS_PROFILE");
 
-	if (perf_profile)
+	if (perf_profile) {
 		enable_perf_stats = 1;
+    }
 	else
 		enable_perf_stats = 0;
 

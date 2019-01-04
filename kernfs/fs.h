@@ -24,6 +24,7 @@ extern "C" {
 typedef struct mlfs_kernfs_stats {
 	uint64_t digest_time_tsc; 
 	uint64_t path_search_tsc;
+    uint64_t path_storage_tsc;
 	uint64_t replay_time_tsc;
 	uint64_t apply_time_tsc;
 	uint64_t digest_dir_tsc;
