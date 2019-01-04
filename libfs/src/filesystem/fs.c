@@ -74,18 +74,17 @@ void show_libfs_stats(const char *title)
 	// For some reason, floating point operation causes segfault in filebench 
 	// worker thread.
 
-    printf("wait on digest    : %.3f ms\n", tsc_to_ms(g_perf_stats.digest_wait_tsc));
-	printf("inode allocation  : %.3f ms\n", tsc_to_ms(g_perf_stats.ialloc_tsc));
-	printf("bcache search     : %.3f ms\n", tsc_to_ms(g_perf_stats.bcache_search_tsc));
-	printf("search l0 tree    : %.3f ms\n", tsc_to_ms(g_perf_stats.l0_search_tsc));
-	printf("search lsm tree   : %.3f ms\n", tsc_to_ms(g_perf_stats.tree_search_tsc));
-	printf("log commit        : %.3f ms\n", tsc_to_ms(g_perf_stats.log_commit_tsc));
-	printf("  log writes      : %.3f ms\n", tsc_to_ms(g_perf_stats.log_write_tsc));
-	printf("  loghdr writes   : %.3f ms\n", tsc_to_ms(g_perf_stats.loghdr_write_tsc));
-	printf("read data blocks  : %.3f ms\n", tsc_to_ms(g_perf_stats.read_data_tsc));
-	printf("directory search  : %.3f ms\n", tsc_to_ms(g_perf_stats.dir_search_tsc));
-	printf("temp_debug        : %.3f ms\n", tsc_to_ms(g_perf_stats.tmp_tsc));
-	/*
+    //printf("wait on digest    : %.3f ms\n", tsc_to_ms(g_perf_stats.digest_wait_tsc));
+	//printf("inode allocation  : %.3f ms\n", tsc_to_ms(g_perf_stats.ialloc_tsc));
+	//printf("bcache search     : %.3f ms\n", tsc_to_ms(g_perf_stats.bcache_search_tsc));
+	//printf("search l0 tree    : %.3f ms\n", tsc_to_ms(g_perf_stats.l0_search_tsc));
+	//printf("search lsm tree   : %.3f ms\n", tsc_to_ms(g_perf_stats.tree_search_tsc));
+	//printf("log commit        : %.3f ms\n", tsc_to_ms(g_perf_stats.log_commit_tsc));
+	//printf("  log writes      : %.3f ms\n", tsc_to_ms(g_perf_stats.log_write_tsc));
+	//printf("  loghdr writes   : %.3f ms\n", tsc_to_ms(g_perf_stats.loghdr_write_tsc));
+	//printf("read data blocks  : %.3f ms\n", tsc_to_ms(g_perf_stats.read_data_tsc));
+	//printf("directory search  : %.3f ms\n", tsc_to_ms(g_perf_stats.dir_search_tsc));
+	//printf("temp_debug        : %.3f ms\n", tsc_to_ms(g_perf_stats.tmp_tsc));
 	printf("wait on digest  (tsc)  : %lu \n", g_perf_stats.digest_wait_tsc);
 	printf("inode allocation (tsc) : %lu \n", g_perf_stats.ialloc_tsc);
 	printf("bcache search (tsc)    : %lu \n", g_perf_stats.bcache_search_tsc);
@@ -97,7 +96,6 @@ void show_libfs_stats(const char *title)
 	printf("read data blocks (tsc) : %lu \n", g_perf_stats.read_data_tsc);
 	printf("directory search (tsc) : %lu \n", g_perf_stats.dir_search_tsc);
 	printf("temp_debug (tsc)       : %lu \n", g_perf_stats.tmp_tsc);
-	*/
 #if 0
 	printf("wait on digest (nr)   : %lu \n", g_perf_stats.digest_wait_nr);
 	printf("search lsm tree (nr)  : %lu \n", g_perf_stats.tree_search_nr);
