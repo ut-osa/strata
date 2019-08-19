@@ -19,9 +19,6 @@
 
 #include "mlfs/mlfs_interface.h"
 
-#include "storage/spdk/async.h"
-#include "storage/spdk/sync.h"
-
 #include "time_stat.h"
 #include "thread.h"
 

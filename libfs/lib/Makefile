@@ -1,7 +1,6 @@
 .PHONY: download all clean
 
 all:
-	(cd spdk && ./configure && make -j8)
 	make -C nvml -j8
 	(cd syscall_intercept; \
 	 mkdir build; \
@@ -28,5 +27,4 @@ redownload:
 	git clone https://github.com/pmem/syscall_intercept.git
 
 clean:
-	make clean -C spdk
 	make clean -C nvml

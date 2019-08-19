@@ -6,7 +6,7 @@ struct block_device *g_bdev[g_n_devices + 1];
 char *g_dev_path[] = {
 	(char *)"unused",
 	(char *)"/dev/dax0.0",
-	(char *)"PCIe-SSD",
+	(char *)"/backup/mlfs_ssd",
 	(char *)"/backup/mlfs_hdd",
 	(char *)"/dev/dax1.0",
 	(char *)"/dev/dax2.0",
@@ -35,19 +35,6 @@ struct storage_operations storage_dax = {
 	dax_exit,
 };
 
-struct storage_operations storage_spdk = {
-	spdk_init,
-	spdk_read,
-	NULL,
-	spdk_write,
-	NULL,
-	spdk_erase,
-	NULL,
-	spdk_wait_io,
-	spdk_readahead,
-	spdk_exit,
-};
-
 struct storage_operations storage_hdd = {
 	hdd_init,
 	hdd_read,
@@ -73,19 +60,6 @@ struct storage_operations storage_dax = {
 	.erase = dax_erase,
 	.readahead = NULL,
 	.exit = dax_exit,
-};
-
-struct storage_operations storage_spdk = {
-	.init = spdk_init,
-	.read = spdk_read,
-	.read_unaligned = NULL,
-	.write = spdk_write,
-	.write_unaligned = NULL,
-	.commit = NULL,
-	.wait_io = spdk_wait_io,
-	.erase = spdk_erase,
-	.readahead = spdk_readahead,
-	.exit = spdk_exit,
 };
 
 struct storage_operations storage_hdd = {

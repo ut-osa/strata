@@ -416,19 +416,11 @@ CUR_DIR = $(shell pwd)
 SRC_ROOT = $(abspath ../../)
 LIBFS_DIR = $(SRC_ROOT)/libfs/build/
 NVML_DIR = $(SRC_ROOT)/libfs/lib/nvml/src/nondebug/
-LIBSPDK_INC=../lib/libspdk/
 MLFS_INCLUDES= $(LIBFS_DIR)/../src
 
 DPDK_DIR := $(abspath $(SRC_ROOT)/libfs/lib/dpdk-16.07/x86_64-native-linuxapp-gcc)
-SPDK_ROOT_DIR := $(abspath $(SRC_ROOT)/libfs/lib/spdk)
-# This cause problems.
-#include $(SPDK_ROOT_DIR)/mk/spdk.common.mk
-SPDK_LIBS += $(SPDK_ROOT_DIR)/lib/nvme/libspdk_nvme.a \
-             $(SPDK_ROOT_DIR)/lib/util/libspdk_util.a \
-             $(SPDK_ROOT_DIR)/lib/log/libspdk_log.a \
-             $(ENV_LIBS)
 
-CFLAGS += -I $(LIBSPDK_INC) -I $(MLFS_INCLUDES) -I $(DPDK_DIR)/include -lm -lpthread -lrt -DMLFS
+CFLAGS += -I $(MLFS_INCLUDES) -I $(DPDK_DIR)/include -lm -lpthread -lrt -DMLFS
 
 MLFS_LDFLAGS = -Wl,-rpath=$(abspath $(LIBFS_DIR)) \
           -Wl,-rpath=$(abspath $(NVML_DIR)) \

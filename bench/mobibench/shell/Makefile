@@ -20,10 +20,9 @@ STRATA_INCS += $(STRATA)/libfs/lib/nvml/src/include/
 STRATA_INC = $(addprefix -I, $(STRATA_INCS))
 
 STRATA_LIBS = $(STRATA)/libfs/build/
-STRATA_LIBS += $(STRATA)/libfs/src/storage/spdk/
 STRATA_LIBS += $(STRATA)/libfs/lib/nvml/src/nondebug/
 STRATA_LIB = $(addprefix -L, $(STRATA_LIBS))
-STRATA_FLAGS = $(STRATA_INC) $(STRATA_LIB) -lmlfs -lspdk -lpmem
+STRATA_FLAGS = $(STRATA_INC) $(STRATA_LIB) -lmlfs -lpmem
 
 
 #CFLAGS += -DDEBUG_SCRIPT
