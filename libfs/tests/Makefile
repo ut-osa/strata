@@ -29,7 +29,7 @@ CFLAGS=-I $(LIBSPDK_INC) -I $(DPDK_DIR)/include -I$(INCLUDES)
 LDFLAGS = -Wl,-rpath=$(abspath $(LIBFS_DIR)) \
 		  -Wl,-rpath=$(abspath $(NVML_DIR)) \
 		  -Wl,-rpath=$(abspath $(LIBSPDK_DIR)) \
-		  -lpthread -lrt -lm -lssl -lcrypto -lrdmacm -libverbs
+		  -lpthread -lrt -lm -lssl -lcrypto
 
 all: $(EXE)
 
