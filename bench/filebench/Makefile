@@ -415,7 +415,6 @@ AM_CFLAGS = -Wall -Wno-unknown-pragmas
 # MLFS build setup
 CUR_DIR = $(shell pwd)
 SRC_ROOT = $(abspath ../../)
-GLIBC_DIR = $(SRC_ROOT)/shim/glibc-build/
 LIBFS_DIR = $(SRC_ROOT)/libfs/build/
 NVML_DIR = $(SRC_ROOT)/libfs/lib/nvml/src/nondebug/
 LIBSPDK_DIR = $(SRC_ROOT)/libfs/src/storage/spdk/
@@ -435,16 +434,13 @@ SPDK_LIBS += $(SPDK_ROOT_DIR)/build/lib/libspdk_nvme.a \
 CFLAGS += -I $(LIBSPDK_INC) -I $(MLFS_INCLUDES) -I $(DPDK_DIR)/include -g
 CXXFLAGS += -I $(LIBSPDK_INC) -I $(MLFS_INCLUDES) -I $(DPDK_DIR)/include -g
 
-MLFS_LDFLAGS = -Wl,-rpath=$(abspath $(GLIBC_DIR)) \
-		  -Wl,-rpath=$(abspath $(GLIBC_DIR))/rt \
-          -Wl,-rpath=$(abspath $(LIBFS_DIR)) \
+MLFS_LDFLAGS = -Wl,-rpath=$(abspath $(LIBFS_DIR)) \
           -Wl,-rpath=$(abspath $(NVML_DIR)) \
           -Wl,-rpath=$(abspath $(LIBSPDK_DIR)) \
           -Wl,-rpath=/usr/local/lib \
 	  -Wl,-rpath=/usr/lib \
 		  -Wl,-rpath=/usr/lib/x86_64-linux-gnu/ \
 		  -Wl,-rpath=/lib/x86_64-linux-gnu/ \
-		  -Wl,-dynamic-linker=$(abspath $(GLIBC_DIR))/ld-linux-x86-64.so.2 \
 		  -L$(LIBFS_DIR)  \
 		  -L$(LIBSPDK_DIR)  \
 		  -lmlfs -lpthread -lrt -lspdk -lm

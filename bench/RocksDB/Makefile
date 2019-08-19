@@ -265,9 +265,7 @@ STRATA_LIBS = $(STRATA)/libfs/build/
 STRATA_LIBS += $(STRATA)/libfs/src/storage/spdk/
 STRATA_LIBS += $(STRATA)/libfs/lib/pmdk/src/nondebug/
 STRATA_LIB = $(addprefix -L, $(STRATA_LIBS))
-STRATA_FLAGS = $(STRATA_INC) $(STRATA_LIB) -lmlfs -lspdk -lpmem \
-    -Wl,-rpath=$(STRATA)/shim/glibc-build/ \
-    -Wl,-dynamic-linker=$(STRATA)/shim/glibc-build/ld-linux-x86-64.so.2
+STRATA_FLAGS = $(STRATA_INC) $(STRATA_LIB) -lmlfs -lspdk -lpmem
 
 
 CFLAGS += $(WARNING_FLAGS) -I. -I./include $(PLATFORM_CCFLAGS) $(OPT) $(STRATA_FLAGS)

@@ -414,7 +414,6 @@ AM_CFLAGS = -Wall -Wno-unknown-pragmas
 # MLFS build setup
 CUR_DIR = $(shell pwd)
 SRC_ROOT = $(abspath ../../)
-GLIBC_DIR = $(SRC_ROOT)/shim/glibc-build/
 LIBFS_DIR = $(SRC_ROOT)/libfs/build/
 NVML_DIR = $(SRC_ROOT)/libfs/lib/nvml/src/nondebug/
 LIBSPDK_INC=../lib/libspdk/
@@ -431,10 +430,8 @@ SPDK_LIBS += $(SPDK_ROOT_DIR)/lib/nvme/libspdk_nvme.a \
 
 CFLAGS += -I $(LIBSPDK_INC) -I $(MLFS_INCLUDES) -I $(DPDK_DIR)/include -lm -lpthread -lrt -DMLFS
 
-MLFS_LDFLAGS = -Wl,-rpath=$(abspath $(GLIBC_DIR)) \
-          -Wl,-rpath=$(abspath $(LIBFS_DIR)) \
+MLFS_LDFLAGS = -Wl,-rpath=$(abspath $(LIBFS_DIR)) \
           -Wl,-rpath=$(abspath $(NVML_DIR)) \
-          -Wl,-dynamic-linker=$(abspath $(GLIBC_DIR))/ld-linux-x86-64.so.2 \
           -lpthread -lrt
 
 LINK_MLFS = $(LIBTOOL) $(AM_V_lt) --tag=CC $(AM_LIBTOOLFLAGS) \

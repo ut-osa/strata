@@ -14,7 +14,7 @@ CC=gcc
 #  List of all modules' directories
 ########
 MODULES   := io concurrency config filesystem global ds log mkfs \
-	mlfs posix storage
+	mlfs posix storage shim
 
 ########
 #  List of all modules' directories
@@ -39,10 +39,11 @@ NVML_DIR := $(abspath $(CURDIR)/lib/nvml/src)
 SPDK_DIR := $(abspath $(CURDIR)/lib/spdk)
 LIBSPDK_DIR := $(abspath $(CURDIR)/src/storage/spdk/)
 JEMALLOC_DIR := $(abspath $(CURDIR)/lib/jemalloc-4.5.0)
+SYSCALL_INTERCEPT_DIR := $(abspath $(CURDIR)/lib/syscall_intercept/install/)
 
-INCLUDES  := $(addprefix -I,src/ $(LIBSPDK_DIR) $(NVML_DIR)/include)
+INCLUDES  := $(addprefix -I,src/ $(LIBSPDK_DIR) $(NVML_DIR)/include $(SYSCALL_INTERCEPT_DIR)/include)
 
-LD_FLAGS = -lpthread -lm -L$(NVML_DIR)/nondebug/ -lpmem -lrt #-Wl,-fuse-ld=gold
+LD_FLAGS = -lpthread -lm -L$(NVML_DIR)/nondebug/ -Wl,-rpath=$(abspath $(NVML_DIR)/nondebug) -lpmem -lrt -L$(abspath $(SYSCALL_INTERCEPT_DIR)/lib) -Wl,-rpath=$(abspath $(SYSCALL_INTERCEPT_DIR)/lib) -lsyscall_intercept #-Wl,-fuse-ld=gold
 
 #MLFS_FLAGS = -DUSE_SLAB -DLIBFS -DMLFS_INFO
 #MLFS_FLAGS = -DLIBFS
