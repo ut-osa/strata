@@ -55,6 +55,7 @@ make
 ~~~
 cd libfs/lib
 git clone https://github.com/pmem/nvml
+git clone https://github.com/pmem/syscall_intercept.git
 make
 
 tar xvjf jemalloc-4.5.0.tar.bz2
