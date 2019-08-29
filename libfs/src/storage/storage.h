@@ -2,8 +2,6 @@
 #define _STORAGE_H_
 
 #include "global/global.h"
-#include "spdk/sync.h"
-
 
 // Interface for different storage engines.
 struct storage_operations
@@ -40,7 +38,6 @@ extern "C" {
 static uint64_t dev_size[g_n_devices + 1] = {0, 21474836480UL, 128849018880UL, 193273528320UL, 2147483648UL};
 
 extern struct storage_operations storage_dax;
-extern struct storage_operations storage_spdk;
 extern struct storage_operations storage_hdd;
 
 // ramdisk
@@ -70,15 +67,6 @@ int dax_write_unaligned(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t offs
 int dax_erase(uint8_t dev, addr_t blockno, uint32_t io_size);
 int dax_commit(uint8_t dev);
 void dax_exit(uint8_t dev);
-
-// SPDK (PCIe-SSD)
-uint8_t *spdk_init(uint8_t dev, char *dev_path);
-int spdk_read(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t io_size);
-int spdk_write(uint8_t dev, uint8_t *buf, addr_t blockno, uint32_t io_size);
-int spdk_erase(uint8_t dev, addr_t blockno, uint32_t io_size);
-int spdk_wait_io(uint8_t dev, int isread);
-int spdk_readahead(uint8_t dev, addr_t blockno, uint32_t io_size);
-void spdk_exit(uint8_t dev);
 
 // HDD
 uint8_t *hdd_init(uint8_t dev, char *dev_path);

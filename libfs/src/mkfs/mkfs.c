@@ -55,24 +55,12 @@ static inline addr_t mkfs_get_inode_block(uint32_t inum, addr_t inode_start)
 	return (inum /IPB) + inode_start;
 }
 
-typedef enum {NON, NVM, SPDK, HDD, FS} storage_mode_t;
+typedef enum {NON, NVM, HDD, FS} storage_mode_t;
 
 storage_mode_t storage_mode;
 
 #if 0
 #ifdef __cplusplus
-static struct storage_operations spdk_storage_ops = {
-	spdk_init,
-	spdk_read,
-	NULL,
-	spdk_write,
-	NULL,
-	spdk_erase,
-	NULL,
-	spdk_wait_io,
-	spdk_exit
-};
-
 static struct storage_operations nvm_storage_ops = {
 	dax_init,
 	dax_read,
@@ -98,16 +86,6 @@ struct storage_operations storage_hdd = {
 	hdd_exit,
 };
 #else
-static struct storage_operations spdk_storage_ops = {
-	.init = spdk_init,
-	.read = spdk_read,
-	.write = spdk_write,
-	.erase  = spdk_erase,
-	.commit = NULL,
-	.wait_io = spdk_wait_io,
-	.exit = spdk_exit,
-};
-
 static struct storage_operations nvm_storage_ops = {
 	.init = dax_init,
 	.read = dax_read,
@@ -164,11 +142,7 @@ int main(int argc, char *argv[])
 	if (dev_id == 1) {
 		printf("Formating fs with DEVDAX\n");
 		storage_mode = NVM;
-	} else if (dev_id == 2) {
-		printf("Formating fs with SPDK\n");
-		storage_mode = SPDK;
-		//storage_mode = NVM;
-	} else if (dev_id == 3) {
+	} else if (dev_id == 2 || dev_id == 3) {
 		printf("Formating fs with HDD\n");
 		storage_mode = HDD;
 	} else {
@@ -250,9 +224,7 @@ int main(int argc, char *argv[])
 
 	if (storage_mode == NVM)
 		storage_dax.init(dev_id, g_dev_path[dev_id]);
-	else if (storage_mode == SPDK) {
-		storage_spdk.init(dev_id, NULL);
-	} else if (storage_mode == HDD) {
+	else if (storage_mode == HDD) {
 		storage_hdd.init(dev_id, g_dev_path[dev_id]); 
 	} else {
 		fsfd = open(argv[1], O_RDWR|O_CREAT|O_TRUNC, 0666);
@@ -266,13 +238,7 @@ int main(int argc, char *argv[])
 
 	memset(zeroes, 0, g_block_size_bytes);
 #if 1
-	if (storage_mode == SPDK) {
-		//for(i = 0; i < file_size_blks; i += (1 << 10)) {
-		for (i = 0; i <  ondisk_sb.datablock_start; i += (1 << 10)) {
-			//spdk_storage_ops.erase(dev_id, i, g_block_size_bytes * (1 << 10));
-			storage_spdk.erase(dev_id, i, g_block_size_bytes * (1 << 10));
-		}
-	} else if (storage_mode == HDD) {
+	if (storage_mode == HDD) {
 		for(i = 0; i < ondisk_sb.datablock_start; i++)
 			wsect(i, (uint8_t *)zeroes);
 	} else {
@@ -280,14 +246,8 @@ int main(int argc, char *argv[])
 			wsect(i, (uint8_t *)zeroes);
 	}
 #else
-	if (storage_mode == SPDK) {
-		for( i = 0; i <  ondisk_sb.datablock_start; i += (1 << 10)) {
-			storage_spdk.erase(dev_id, i, g_block_size_bytes * (1 << 10));
-		}
-	} else {
-		for(i = 0; i < ondisk_sb.datablock_start; i++)
-			wsect(i, (uint8_t *)zeroes);
-	}
+	for(i = 0; i < ondisk_sb.datablock_start; i++)
+		wsect(i, (uint8_t *)zeroes);
 #endif
 
 	memset(buf, 0, sizeof(buf));
@@ -376,12 +336,8 @@ int main(int argc, char *argv[])
 	// update block allocation bitmap;
 	balloc(freeblock);
 
-	if (storage_mode == NVM) 
+	if (storage_mode == NVM)
 		storage_dax.commit(dev_id);
-	else if (storage_mode == SPDK) {
-		storage_spdk.wait_io(dev_id, 0);
-		storage_spdk.wait_io(dev_id, 1);
-	}
 	else if (storage_mode == HDD)
 		storage_hdd.commit(dev_id);
 
@@ -392,9 +348,6 @@ void wsect(addr_t sec, uint8_t *buf)
 {
 	if (storage_mode == NVM) {
 		storage_dax.write(dev_id, buf, sec, g_block_size_bytes);
-	} else if (storage_mode == SPDK) {
-		storage_spdk.write(dev_id, buf, sec, g_block_size_bytes);
-		storage_spdk.wait_io(dev_id, 0);
 	} else if (storage_mode == HDD) {
 		storage_hdd.write(dev_id, buf, sec, g_block_size_bytes);
 	} else if (storage_mode == FS) {
@@ -444,11 +397,8 @@ void read_inode(uint8_t dev_id, uint32_t inum, struct dinode *ip)
 
 void rsect(addr_t sec, uint8_t *buf)
 {
-	if (storage_mode == NVM) 
+	if (storage_mode == NVM) {
 		storage_dax.read(dev_id, buf, sec, g_block_size_bytes);
-	else if (storage_mode == SPDK) {
-		storage_spdk.read(dev_id, buf, sec, g_block_size_bytes);
-		storage_spdk.wait_io(dev_id, 1);
 	} else if (storage_mode == HDD) {
 		storage_hdd.read(dev_id, buf, sec, g_block_size_bytes);
 	} else if (storage_mode == FS) {

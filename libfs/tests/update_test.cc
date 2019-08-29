@@ -22,9 +22,6 @@
 #include <mlfs/mlfs_interface.h>	
 #endif
 
-#include "storage/spdk/async.h"
-#include "storage/spdk/sync.h"
-
 #include "time_stat.h"
 #include "thread.h"
 
@@ -351,9 +348,6 @@ test_t io_test::set_test_type(test_t mode)
 test_mode_t io_test::get_test_mode(char *test_mode)
 {
 	test_mode_t storage_type = FS;
-	/**
-	 *  Test mode, FS or spdk
-	 */
 	if (!strcmp(test_mode, "fs")) {
 		storage_type = FS;
 	} else {

@@ -42,19 +42,12 @@ sudo make modules_install ; sudo make install
 ~~~
 
 This step requires reboot your machine after installing the new kernel.
-##### 3. Build glibc
 
-Building glibc might not be an easy task in some machines. We provide pre-built libc binaries in "shim/glibc-build".
-If you keep failing to build glibc, I recommand to use the pre-built glibc for your testing.
-
-~~~
-cd shim
-make
-~~~
-##### 4. Build dependent libraries (SPDK, NVML, JEMALLOC)
+##### 3. Build dependent libraries (SPDK, NVML, JEMALLOC)
 ~~~
 cd libfs/lib
 git clone https://github.com/pmem/nvml
+git clone https://github.com/pmem/syscall_intercept.git
 make
 
 tar xvjf jemalloc-4.5.0.tar.bz2
@@ -67,21 +60,16 @@ make
 For SPDK build errors, please check a SPDK website (http://www.spdk.io/doc/getting_started.html)
 
 For NVML build errors, please check a NVML repository (https://github.com/pmem/nvml/)
-##### 5. Build Libfs
+##### 4. Build Libfs
 ~~~
 cd libfs
 make
 ~~~
-##### 6. Build KernelFS
+##### 5. Build KernelFS
 ~~~
 cd kernfs
 make
 cd tests
-make
-~~~
-##### 7. Build libshim
-~~~
-cd shim/libshim
 make
 ~~~
 

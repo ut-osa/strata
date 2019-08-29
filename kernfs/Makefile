@@ -24,16 +24,13 @@ HDER := $(foreach sdir, $(SRC_DIR), $(wildcard $(sdir)/*.h))
 ########
 NVML_DIR := $(abspath $(LIBFS_DIR)/lib/nvml/src)
 DPDK_DIR := $(abspath $(LIBFS_DIR)/lib/dpdk-16.07/x86_64-native-linuxapp-gcc)
-SPDK_DIR := $(abspath $(LIBFS_DIR)/lib/spdk)
-LIBSPDK_DIR := $(abspath $(LIBFS_DIR)/src/storage/spdk/)
 CUCKOO_FILTER_DIR := $(abspath $(LIBFS_DIR)/lib/cuckoofilter)
 CUCKOO_DIR := $(abspath $(LIBFS_DIR)/lib/libcuckoo)
 GLIB_DIR := $(abspath $(LIBFS_DIR)/lib/glib)
 JEMALLOC_DIR := $(abspath $(LIBFS_DIR)/lib/jemalloc-4.5.0)
 STORAGE_ENGINE := $(wildcard $(LIBFS_DIR)/build/storage/*.o)
-#LIBSPDK := $(abspath $(LIBFS_DIR)/src/storage/spdk/libspdk.so)
 
-INCLUDES  := $(addprefix -I, . $(LIBSPDK_DIR) $(NVML_DIR)/include $(CUCKOO_DIR) $(CUCKOO_FILTER_DIR)/src $(GLIB_DIR)/ $(GLIB_DIR)/glib)
+INCLUDES  := $(addprefix -I, . $(NVML_DIR)/include $(CUCKOO_DIR) $(CUCKOO_FILTER_DIR)/src $(GLIB_DIR)/ $(GLIB_DIR)/glib)
 
 LD_FLAGS = -lpthread -lm -L$(NVML_DIR)/nondebug/ -lpmem -lrt
 

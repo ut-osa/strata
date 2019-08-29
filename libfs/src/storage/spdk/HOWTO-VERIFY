@@ -1,1 +1,0 @@
-sudo LD_LIBRARY_PATH=. ./verify 16 9090

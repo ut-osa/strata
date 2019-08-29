@@ -61,19 +61,7 @@ void device_init(void)
 			g_bdev[i]->storage_engine = &storage_dax;
 			g_bdev[i]->map_base_addr = 
 				g_bdev[i]->storage_engine->init(i, g_dev_path[i]);
-		} else if (i == g_ssd_dev) {
-			g_bdev[i] = bdev_alloc(i, 12);
-#if 1
-			g_bdev[i]->storage_engine = &storage_spdk;
-			g_bdev[i]->map_base_addr = NULL;
-			g_bdev[i]->storage_engine->init(i, NULL);
-#else
-			// for testing.
-			g_bdev[i]->storage_engine = &storage_dax;
-			g_bdev[i]->map_base_addr = 
-				g_bdev[i]->storage_engine->init(i, g_dev_path[i]);
-#endif
-		} else if (i == g_hdd_dev) {
+		} else if (i == g_ssd_dev || i == g_hdd_dev) {
 			g_bdev[i] = bdev_alloc(i, 12);
 			g_bdev[i]->storage_engine = &storage_hdd;
 			g_bdev[i]->map_base_addr = NULL;
