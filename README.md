@@ -1,6 +1,8 @@
 Strata: A Cross Media File System
 ==================================
 
+> **This repository is no longer maintained; Strata is now under the umbrella of the [Assise project](https://github.com/ut-osa/assise).**
+
 Strata is a research prototype file system, presented in SOSP 2017 ([Strata]).
 
 Strata is developed and tested on Ubuntu 16.04 LTS, Linux kernel 4.8.12 and gcc
