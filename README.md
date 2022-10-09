@@ -112,8 +112,39 @@ sudo ./use_dax.sh unbind
 ##### 3. Setup storage size
 This step requires rebuilding of Libfs and KernFS.
 ~~~
-TODO: Some instructions to setup storage size (by a script or manually)
+TODO: Some instructions to setup storage size (by a script )
 ~~~
+Step 3 is setup the location of devieces in the source code.
+
+In Step 2 of Running Strata, the pmem mapping will be changed to dax mapping
+
+which maps pmem to /dev/dax*
+
+In Step 4 of Running Strata, nvme mapping will be changed into uio mapping
+
+which maps nvme0n1 to /dev/uio*
+
+The dev path is defined in code strata/libfs/src/storage/storage.c
+
+char *g_dev_path[] = {
+	(char *)"unused",
+	(char *)"/dev/dax0.0",
+	(char *)"/backup/mlfs_ssd",
+	(char *)"/backup/mlfs_hdd",
+	(char *)"/dev/dax1.0",
+	(char *)"/dev/dax2.0",
+};
+what you have to do is change it to
+
+char *g_dev_path[] = {
+	(char *)"unused",
+	(char *)"/dev/dax0.0",
+	(char *)"/dev/uio0",
+	(char *)"/backup/mlfs_hdd",
+	(char *)"/dev/dax1.0",
+	(char *)"/dev/dax2.0",
+};
+and then repeat steps 4 and 5 of Building Strata
 
 ##### 4. Setup UIO for SPDK
 ~~~
